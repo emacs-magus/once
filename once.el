@@ -68,9 +68,9 @@ keywords must come at the end (:check and :initial-check).
 This will also allow using a single symbol or string as the condition.
 
 For example:
-(once #'foo ...)
+ (once #'foo ...)
 is the same as
-(once (list :before #'foo) ...)
+ (once (list :before #'foo) ...)
 
 By setting this variable, you confirm that you understand how the inference
 works and what its limitations are (e.g. you cannot specify a package as a
@@ -246,13 +246,13 @@ information."
   "Advise functions to remove themselves once any of them run.
 
 HOOK-PAIRS should be in the format:
-('hook-name <hook function>)
+ ('hook-name <hook function>)
 
 ADVICE-PAIRS should be in the format:
-('advised-symbol <advice function>)
+ ('advised-symbol <advice function>)
 
 PACKAGE-PAIRS should be in the format:
-(<regexp or feature symbol> <function>)
+ (<regexp or feature symbol> <function>)
 
 The difference from sharing a single transient function between hooks and advice
 is that this allows different functions with specific checks (e.g. based on
@@ -297,7 +297,7 @@ Packages - %s"
       (advice-add function :around name))))
 
 (defun once--make-conditional-function (function specific-check general-check)
-  "Return a function that runs FUNCTION when checks returns non-nil.
+  "Return function to run  FUNCTION when SPECIFIC-CHECK and GENERAL-CHECK pass.
 SPECIFIC-CHECK is a check specific to the hook or function this function will be
 added to.  This means any arguments passed to the new function will be passed to
 SPECIFIC-CHECK.  GENERAL-CHECK and FUNCTION will be passed no arguments.
@@ -305,7 +305,7 @@ SPECIFIC-CHECK.  GENERAL-CHECK and FUNCTION will be passed no arguments.
 If SPECIFIC-CHECK or GENERAL-CHECK is nil, the check will be
 skipped/automatically succeed.
 
-The returned function will return t if both checks succeeds. Otherwise it will
+The returned function will return t if both checks succeeds.  Otherwise it will
 return nil."
   (let ((name (intern (format "once--%s-run-%s-conditionally"
                               ;; protect against collision
@@ -347,19 +347,19 @@ FUNCTION will only run once.  Once it runs, all added functions will be removed
 from each hook and advised symbol.
 
 HOOKS should be a list with each item in the form:
-(<hook symbol> <local-check function or nil>)
+ (<hook symbol> <local-check function or nil>)
 e.g.
-('some-hook (lambda () (foo-check)))
+ ('some-hook (lambda () (foo-check)))
 
 ADVISE-SYMBOLS should be a list with each item in the form:
-(<where> <advise function symbol> <optional local-check>)
+ (<where> <advise function symbol> <optional local-check>)
 e.g.
-(:before 'some-symbol (lambda () (foo-check)))
+ (:before 'some-symbol (lambda () (foo-check)))
 
 PACKAGES should be a list with each item in the form:
-(<regexp or feature symbol> <local-check function or nil>)
+ (<regexp or feature symbol> <local-check function or nil>)
 e.g.
-('some-package (lambda () (foo-check)))"
+ ('some-package (lambda () (foo-check)))"
   (let ((hook-pairs
          (cl-loop for (hook local-check) in hooks
                   collect (let ((maybe-function
@@ -495,8 +495,7 @@ Unlike `satch-add-hook' and `satch-advice-add' (from satch.el), all FUNCTIONS
 should take no arguments.
 
 CONDITION should be a condition in the following format:
-
-(list :hooks arg1 arg2... :before arg1 arg2... :check (lambda () ...) ...)
+ (list :hooks arg1 arg2... :before arg1 arg2... :check (lambda () ...) ...)
 
 Here are the available CONDITION keywords:
 
@@ -512,7 +511,7 @@ Here are the available CONDITION keywords:
   triggers.
 - :hooks - list of hooks that can trigger running FUNCTIONS
 - :packages - list of packages (i.e. valid arguments to `eval-after-load') that
-  can trigger running FUNCTIONS on load. Unlike :after or Doom's after!,
+  can trigger running FUNCTIONS on load.  Unlike :after or Doom's after!,
   `once-x-call' does not support any sort of complex \"and\"/\"or\" rules
   for packages.  I have yet to encounter a situation where these are actually
   necessary.  Any of the specified packages loading can trigger FUNCTIONS.
@@ -531,11 +530,10 @@ passes, you should specify :initial-check as (lambda () nil).
 Hook/advice arguments can specify a \"local check\" that only applies to a
 specific hook or advised function by specifying a list like (<hook>
 <specific-check>) or (<advise-function> <specific-check>) instead of a single
-symbol. For example:
-
-(list
- :hooks
- (list 'after-load-functions (lambda (_load-file) (boundp 'some-symbol))))
+symbol.  For example:
+ (list
+  :hooks
+  (list 'after-load-functions (lambda (_load-file) (boundp 'some-symbol))))
 
 Unlike the :check and :initial-check functions, which take no arguments, a local
 check function will be passed whatever arguments are given for the hook or
@@ -547,13 +545,12 @@ this may not often be useful.
 
 Here is a phony example of what a `once-x-call' invocation looks like (you
 would never actually use this condition):
-
-(once-x-call (list :hooks 'pre-command-hook-hook 'another-hook
-                   :before 'after-find-file
-                   :packages 'evil
-                   :initial-check (lambda () (and (bar) (foo)))
-                   :check (lambda () (foo)))
-             #'some-mode)
+ (once-x-call (list :hooks 'pre-command-hook-hook 'another-hook
+                    :before 'after-find-file
+                    :packages 'evil
+                    :initial-check (lambda () (and (bar) (foo)))
+                    :check (lambda () (foo)))
+              #'some-mode)
 
 If you set `once-shorthand' to non-nil, you can also use a more brief
 condition syntax.  See its documentation for more information.
@@ -569,14 +566,14 @@ For real examples, see the README or specific once \"x\" utilities like
   "Execute BODY one time when CONDITION is met.
 If the first item is BODY is anything that could be a function, it will be
 considered to be a list of functions:
-(once <condition> #'foo 'bar some-func-in-var (lambda ()))
+ (once <condition> #'foo 'bar some-func-in-var (lambda ()))
 
 Otherwise, if the first item is in the form (fun arg1), it will be considered to
 be a function body:
-(once <condition>
-  (foo)
-  (bar)
-  (baz))
+ (once <condition>
+   (foo)
+   (bar)
+   (baz))
 
 See `once-x-call' for more information, including how to specify CONDITION."
   (declare (indent 1))
@@ -604,4 +601,5 @@ See `once-x-call' for more information, including how to specify CONDITION."
 ;; TODO implement
 
 (provide 'once)
+;; LocalWords:  arg satch el uninterned init
 ;;; once.el ends here

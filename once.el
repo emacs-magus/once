@@ -57,7 +57,6 @@
   "Provides extra deferred evaluation init.el utilities."
   :group 'convenience)
 
-
 (defcustom once-shorthand nil
   "Whether to allow shorthand for `once-x-call' conditions.
 When shorthand is enabled, you do not need to specify :hooks, :before (and other
@@ -77,7 +76,6 @@ By setting this variable, you confirm that you understand how the inference
 works and what its limitations are (e.g. you cannot specify a package as a
 symbol)."
   :type 'boolean)
-
 
 ;; * Helpers
 (defmacro once--ensure-lists (&rest vars)
@@ -588,14 +586,18 @@ See `once-x-call' for more information, including how to specify CONDITION."
       `(once-x-call ,condition ,@body)
     `(once-x-call ,condition (lambda () ,@body))))
 
-(defun once-x-require (condition package)
-  "Once CONDITION is met the first time, require PACKAGE."
-  (let ((require-fun (intern (format "once-require-%s" package))))
+(defun once-x-require (condition &rest packages)
+  "Once CONDITION is met the first time, require PACKAGES."
+  (let* ((package-strings (mapcar (lambda (x) (format "%s" x))
+                                  packages))
+         (require-fun (intern (concat "once-require-"
+                                      (string-join package-strings "-")))))
     (defalias
       require-fun
       (lambda ()
-        (require package))
-      (format "Require %s." package))
+        (dolist (package packages)
+          (require package)))
+      (format "Require %s." (string-join package-strings ", ")))
     (once-x-call condition require-fun)))
 
 ;; * Require Incrementally

@@ -1,0 +1,664 @@
+#+TITLE: Once User Manual
+#+AUTHOR: Fox Kiester
+#+LANGUAGE: en
+#+TEXINFO_DIR_CATEGORY: Emacs
+#+TEXINFO_DIR_TITLE: Once: (once).
+#+TEXINFO_DIR_DESC: Extra init.el deferred evaluation utilties
+
+# NOTE: If you are viewing this in org-mode, it is recommended that you install and enable [[https://github.com/snosov1/toc-org][toc-org]], so that all internal links open correctly
+
+#+BEGIN_QUOTE
+Once upon a time, there was a Princess who lived in a marzipan castle...
+#+END_QUOTE
+
+* About
+*NOTE: I do not recommend trying to use this package in your configuration until I have added tests.  Before then, it may be completely broken.*
+
+=once.el= provides extra delayed evaluation utilities meant to be used in your init.el.  The utilities are primarily meant to simplify specifying conditions for when packages should load (and/or minor modes be activated).  It can also be used more generally as an ~eval-after-load~ replacement to run arbitrary code one time once some (simple or complex) condition is met.
+
+If you are familiar with Doom's =:after-call= (transient hooks and advice), =:defer-incrementally=, and hooks like =doom-first-input-hook= and =doom-first-file-hook=, this package provides a utilities to achieve the same thing.  One difference is that the primary utility ~once~ is more flexible/generic and can be used to replace =:after-call=, Doom's "first" hooks, and more.  In combination with the other [[https://github.com/emacs-magus][emacs-magus]] packages (especially [[https://github.com/emacs-magus/satch.el][satch.el]]), once.el may be useful for anyone coming from Doom Emacs or some other distribution/starter kit who wants some of their helpful init.el configuration utilities without having to
+ copy the code.  For more information on replacing previously Doom-only utilities with standalone packages, see [[https://github.com/emacs-magus#replacing-unpackaged-doom-emacs-functionality][Replacing Doom]].
+
+* Table of Contents                                            :TOC:noexport:
+- [[#about][About]]
+- [[#feature-summary][Feature Summary]]
+- [[#examples][Examples]]
+- [[#example-setup][Example Setup]]
+  - [[#use-package][Use Package]]
+  - [[#setupel][Setup.el]]
+  - [[#not-requiring-at-load-time][Not Requiring at Load Time]]
+- [[#provided-utilities][Provided Utilities]]
+  - [[#eval-after-load-alternatives][~eval-after-load~ Alternatives]]
+  - [[#once-only-deferred-evaluation][Once Only Deferred Evaluation]]
+  - [[#once-require-incrementally][~once-require-incrementally~]]
+
+* Feature Summary
+- ~once~ - Run code one time once some simple or complex condition (involving hooks, advice, package/file loads, and extra checks) is met
+- ~once-x-require~ - Once "x" condition is met, require some package(s)
+- ~once-require-incrementally~ - Space out requiring many packages during idle time (equivalent to Doom's =:defer-incrementally=)
+- ~once-eval-after-load~ / ~once-after-load~ - An ~eval-after-load~ alternative (see below for explanation of the difference from ~eval-after-load~)
+- ~once-with-eval-after-load~ / ~once-with~ - A ~with-eval-after-load~ alternative (see below for explanation of the difference from ~with-eval-after-load~)
+- Optional integration with [[https://github.com/jwiegley/use-package][use-package]] and [[https://github.com/phikal/setup.el][setup.el]]
+
+* Examples
+~once~ is a swiss army knife for deferring packages/configuration.
+
+It can be used to run code the first time a hook runs:
+#+begin_src emacs-lisp
+;; Enable `savehist-mode' once the first time `pre-command-hook' runs; during
+;; idle time, incrementally load custom then savehist; this is how Doom loads
+;; savehist at the time of writing
+(setq once-shorthand t)
+(once 'pre-command-hook #'savehist-mode)
+(once-require-incrementally savehist custom)
+#+end_src
+
+With =use-package=, the mode to run can be inferred:
+#+begin_src emacs-lisp
+(use-package savehist
+  :require-incrementally custom
+  :once 'pre-command-hook)
+;; OR for a more meaningful name
+(require 'once-conditions)
+(use-package savehist
+  :defer-incrementally custom
+  :once once-input)
+#+end_src
+
+
+~once~ can be used to run code the first time a package loads:
+#+begin_src emacs-lisp
+;; Enable `magit-todos-mode' after loading magit
+(use-package magit-todos
+  :once "magit")
+#+end_src
+
+
+~once~ can be used to run code the first time a function runs:
+#+begin_src emacs-lisp
+(use-package magit-todos
+  :once #'magit-status)
+#+end_src
+
+
+~once~ can be used to run code the first time a hook /or/ function runs (like =:after-call=):
+#+begin_src emacs-lisp
+(use-package reveal
+  :once ((list 'on-switch-buffer-hook #'after-find-file)
+         (global-reveal-mode)))
+;; OR with the provided `once-buffer' condition
+(require 'once-conditions)
+(use-package reveal
+  :once (once-buffer (global-reveal-mode)))
+
+;; another example with winner; enable `winner-mode' on `once-buffer' condition;
+;; this is the equivalent of how Doom runs `winner-mode'
+(use-package winner
+  :once once-buffer)
+#+end_src
+
+
+~once~ can also be used to do one-time package configuration:
+#+begin_src emacs-lisp
+;; Install the fonts for all the icons if they have not been installed once the
+;; first GUI frame is created (don't bother installing in tty Emacs or a daemon
+;; with only tty frames)
+(use-package all-the-icons
+  :init
+  (defun all-the-icons-maybe-install-fonts ()
+    "Install fonts for all the icons if they have not been installed."
+    ;; workaround for this functionality not being included by default
+    ;; https://github.com/domtronn/all-the-icons.el/issues/120
+    (when (not (find-font (font-spec :name "all-the-icons")))
+      (all-the-icons-install-fonts t)))
+  :once (once-gui #'all-the-icons-maybe-install-fonts))
+#+end_src
+
+
+~once~ also allows more complex, user-defined conditions:
+#+begin_src emacs-lisp
+;; A more complex user-defined condition for evil users
+(defvar once-my-writable-non-prog-mode-condition
+  (list :initial-check (lambda ()
+                         (and (once-in-an-evil-insert-state-p)
+                              (not (or buffer-read-only
+                                       (derived-mode-p 'prog-mode)))))
+        ;; different check when the hook runs for illustrative purposes (even if
+        ;; though it isn't necessary since `evil-insert-state-entry-hook' runs
+        ;; after `evil-state' has already been changed)
+        :check (lambda ()
+                 (not (or buffer-read-only (derived-mode-p 'prog-mode))))
+        :hooks 'evil-insert-state-entry-hook))
+
+;; Set up fcitx once in insert state in a writable non-programming buffer
+(use-package fcitx
+  :once (my-writable-non-prog-mode-condition
+         (fcitx-aggressive-setup)))
+#+end_src
+
+* Example Setup
+** Use Package
+#+begin_src emacs-lisp
+(eval-and-compile
+  (setq use-package-always-defer t))
+(eval-when-compile
+  (require 'use-package))
+
+(use-package once
+  :demand t
+  :init
+  (require 'once-conditions)
+  (setq once-shorthand t))
+
+(use-package once-use-package
+  :init
+  (eval-and-compile
+    ;; must set before loading
+    (setq once-use-package-aliases
+          '(":once-x-require" ":require-once"
+            ":once-require-incrementally" ":require-incrementally")))
+  (require 'once-use-package))
+#+end_src
+
+** Setup.el
+#+begin_src emacs-lisp
+(setup (:package once)
+  (:require once once-conditions)
+  (setq once-shorthand t))
+
+(setup (:package once-setup)
+  (eval-and-compile
+    ;; must set before loading
+    (setq once-setup-aliases
+          '(":once-x-require" ":require-once"
+            ":once-require-incrementally" ":require-incrementally")))
+  (:require once-setup))
+#+end_src
+
+** Not Requiring at Load Time
+Like use-package, =once-use-package= and =once-setup= are not required at load time if you are compiling your init.el.  This means you can require them at compile time only (e.g. =(eval-when-compile (require 'once-use-package))=).  Note that if you then will use =use-package= or =setup= with any once.el keyword after loading your init.el file (e.g. evaluating a new =use-package= statement in your init.el or in a scratch buffer), you will need to manually require =once-use-package= or =once-setup=.  If you do not understand what this means, it is recommended that you use the above configuration instead, which should work in all cases.  =eval-when-compile= here will not save a significant amount of startup time in the first place.
+
+Also note that compiling your init file is not generally recommended, and if you are not aware of the caveats, you probably should not be compiling your init file.
+
+* Provided Utilities
+** ~eval-after-load~ Alternatives
+Once provides ~once-eval-after-load~, ~once-with-eval-after-load~ / ~once-with~ as ~eval-after-load~ alternatives.  The difference is that if a package has already loaded, the once.el versions will not needlessly add anything to =after-load-alist=.  ~eval-after-load~ will always add to =after-load-alist=.  See [[https://github.com/noctuid/general.el/issues/113][here]] for some background information.  If the package/file has not yet loaded, the once.el versions will also remove from =after-load-alist= after the file loads.
+
+The functional difference is that with ~eval-after-load~, the given form will run every time the specified file is loaded.  With ~once-eval-after-load~, the given form will only run once.  This difference usually should not matter, though I think the once.el version is usually what a user wants.  For example, if you were incrementally testing some =use-package= =:config= block, and added a malformed statement that caused an error, you would get that error every time you loaded the package (e.g. if you updated the package and the re-evaluated the file with the ~provide~ call, you would get the error again; the only simple way to fix this is to restart Emacs).
+
+If for whatever reason you do need the original behavior for some situation, just keep using ~eval-after-load~.  These alternatives are mainly provided for consistency with ~once~ (run some code /only once/) and because I already had to implement the underlying functionality for ~once~.
+
+~-once-with-eval-after-load~ is aliased to ~once-with~.  If you have a lot of configuration for a particular package and want to split it up (especially in an org configuration if you want to split package configuration between multiple headings), you can use ~use-package~ for the initial setup and use ~once-with~ afterwards.
+
+#+begin_src emacs-lisp
+(use-package foo)
+;; ...
+(once-with 'foo
+  (more-configuration))
+#+end_src
+
+** Once Only Deferred Evaluation
+*** ~once-x-call~
+~once-x-call~ is a more flexible way of deferring code/package loading.  If using just hooks, advice, or ~eval-after-load~ is not good enough, ~once-x-call~ can be used to create a condition to run the code that combines them along with various optional checks.
+
+The "once" has two meanings:
+- Run something once some condition is met (hook run OR advised function run OR package load and optional extra checks)
+- Run it only once (unlike normal hooks, normal advice, and ~eval-after-load~)
+
+It is inspired by ~evil-delay~, Doom's =:after-call=, Doom's ~defer-until!~, etc.
+
+The reason it is named ~once-x-call~ is to prevent confusion about the arguments.  The argument order is the condition followed by functions to call ("once x condition happens, call functions").  It is not named ~once-call~ is because this sounds similiar to =:after-call= ("do something after this hook"), which is not the behavior/argument order provided.
+
+Here is an example of ~once-x-call~ being used in place of Doom's =:after-call=:
+#+begin_src emacs-lisp
+;; This is how Doom loads pyim at the time of writing; I believe Doom has
+;; switched to just using `pre-command-hook' for some packages, but the point is
+;; that `once-x-call' can use both hooks and advice (whichever runs first)
+(use-package pyim
+  :after-call after-find-file pre-command-hook
+  ;; ...
+  )
+
+;; with `once-x-call'
+(once-x-call (list :hooks pre-command-hook :before #'after-find-file)
+             (lambda () (require 'pyim)))
+
+;; or with `once-shorthand' enabled and :once
+(use-package pyim
+  :once ((list 'pre-command-hook #'after-find-file)
+         (require 'pyim)))
+
+;; or with `once-shorthand' enabled and :require-once
+;; quoting is required so that variables can be used for the condition(s)
+(use-package pyim
+  :require-once 'pre-command-hook #'after-find-file)
+#+end_src
+
+Unlike ~satch-add-hook~ and ~satch-advice-add~ (from [[https://github.com/emacs-magus/satch.el][satch.el]]), the functions specified to run for ~call-x-once~ should take no arguments.
+
+~call-x-once~ is more generic than =:after-call= and the other mentioned utilities and can handle most conditions for which you want to load a package or run some code.  For more information on specifying conditions, see [[#condition-system][Condition System]].  For examples see below and the pre-defined conditions in =once-conditions.el=.
+
+*** ~once~
+~once~ is a convenience macro over ~once-x-call~ that can act as a drop-in replacement for sane invocations.  If the first argument is something that could be a function (symbols, functions, variables, and lambdas), all arguments are considered to be functions.  Otherwise, all arguments are considered to be body forms to run.
+
+#+begin_src emacs-lisp
+(once-x-call condition #'foo 'bar some-func-in-var (lambda () (require 'baz)))
+;; same as
+(once condition #'foo 'bar some-func-in-var (lambda () (require 'baz)))
+
+;; body instead of function list
+(once condition
+  (foo)
+  (bar)
+  (funcall some-func-in-var)
+  (require 'baz))
+;; expands to
+(once-x-call
+ condition
+ (lambda ()
+   (foo)
+   (bar)
+   (funcall some-func-in-var)
+   (require 'baz)))
+#+end_src
+
+**** Use-package =:once=
+=:once= is a use-package keyword that just takes a ~once~ argument list:
+#+begin_src emacs-lisp
+(require 'once-conditions)
+
+(use-package which-key
+  :once (once-input #'which-key-mode))
+
+(use-package editorconfig
+  :once (once-buffer #'editorconfig-mode))
+
+(use-package magit-todos
+  :once ((list :packages 'magit) #'magit-todos-mode))
+;; or with `once-shorthand'
+(use-package magit-todos
+  :once ("magit" #'magit-todos-mode))
+#+end_src
+
+You can specify as many argument lists as you want to:
+#+begin_src emacs-lisp
+(use-package foo
+  :once
+  ('bar-hook #'foo-mode)
+  ('baz-hook #'foo2-mode))
+#+end_src
+
+When ~once-shorthand~ is non-nil, you can use shorthand to infer a function (i.e. the minor mode to enable):
+#+begin_src emacs-lisp
+;; enable `which-key-mode' on the first input
+(use-package which-key
+  :once 'pre-command-hook)
+;; or
+(require 'once-conditions)
+(use-package which-key
+  :once once-input)
+
+(use-package editorconfig
+  :once once-buffer)
+
+(use-package magit-todos
+  :once "magit")
+#+end_src
+
+Note that any list (other than =(quote some-hook)= or =(function some-function)=) will considered to be an argument list.  You cannot do this:
+#+begin_src emacs-lisp
+;; WRONG!
+(use-package editorconfig
+  :once (some-function-that-generates-a-condition-list))
+
+
+;; Ok
+(use-package editorconfig
+  :once ((some-function-that-generates-a-condition-list) #'editorconfig-mode))
+
+;; Ok
+(use-package editorconfig
+  ;; argument list with inferred function (`editorconfig-mode')
+  :once ((some-function-that-generates-a-condition-list)))
+#+end_src
+
+**** Setup.el =:once=
+=:once= is a setup.el keyword that just takes a ~once~ argument list:
+#+begin_src emacs-lisp
+(require 'once-conditions)
+
+(setup (:package which-key)
+  (:once once-input #'which-key-mode))
+
+(setup (:package editorconfig)
+  (:once once-buffer #'editorconfig-mode))
+
+(setup (:package magit-todos)
+  (:once (list :packages 'magit) #'magit-todos-mode))
+;; or with `once-shorthand'
+(setup (:package magit-todos)
+  (:once "magit" #'magit-todos-mode))
+#+end_src
+
+It is not a repeating keyword.  All arguments after the first are considered to be functions or forms to run once the condition is met (exactly like ~once~).  If you need to do something based on a different condition, specify =:once= again:
+#+begin_src emacs-lisp
+(use-package (:package foo)
+  (:once condition1 #'func1 #'func2)
+  (:once condition2 #'func3 #'func4))
+#+end_src
+
+The benefit over just using ~(once ...)~ is that when ~once-shorthand~ is non-nil, you can use shorthand to infer a function (i.e. the minor mode to enable):
+#+begin_src emacs-lisp
+;; enable `which-key-mode' on the first input
+(setup (:package which-key)
+  (:once 'pre-command-hook))
+;; or
+(require 'once-conditions)
+(setup (:package which-key)
+  (:once once-input))
+
+(setup (:package editorconfig)
+  (:once once-buffer))
+
+(setup (:package magit-todos)
+  (:once "magit"))
+#+end_src
+
+*** Condition System Details
+At least one of =:hooks=, =:packages=, and the advice keywords should be specified.  When more than one is specified, any of them can trigger the condition (the behavior is OR not AND).  The check keywords are optional.
+
+**** =:hooks=
+=:hooks= should be 1+ hooks that can trigger the functions to run.
+
+#+begin_src emacs-lisp
+;; call `cl-lib-highlight-initialize' the first time `emacs-lisp-mode-hook' runs
+(once (list :hooks 'emacs-lisp-mode-hook) #'cl-lib-highlight-initialize)
+;; or with `once-shorthand' enabled
+(once 'emacs-lisp-mode-hook #'cl-lib-highlight-initialize)
+#+end_src
+
+**** =:packages=
+=:packages= should be 1+ packages that can trigger the functions to run when loaded.
+
+#+begin_src emacs-lisp
+;; load yasnippet-snippets as soon as yasnippet is loaded
+(once (list :packages 'yasnippet)
+  (require 'yasnippet-snippets))
+;; or if `once-shorthand' is enabled
+(once "yasnippet"
+  (require 'yasnippet-snippets))
+#+end_src
+
+**** advice
+Any WHERE keyword (e.g. =:before=) can be used to specify advice:
+
+#+begin_src emacs-lisp
+;; enable `global-hardhat-mode' after finding a file
+(once (list :before #'after-find-file) #'global-hardhat-mode)
+;; or if `once-shorthand' is enabled
+(once #'after-find-file #'global-hardhat-mode)
+#+end_src
+
+**** =:check=
+=:check= can be specified as a function to run to determine whether to run now.  It will be passed no arguments.
+
+If no check is given, the code to run will always be delayed.  The only exception is if you use =:packages= and a package has already been loaded.  In that case, the code will run immediately.
+
+When a check is given and it returns non-nil, the code will be run immediately.  Otherwise, it will be delayed.  Then later when a hook runs, package loads, or advised symbol is called, the check will run again to determine whether to run the delayed code now or continue to wait.
+
+#+begin_src emacs-lisp
+;; run `unicode-fonts-setup' for the first GUI frame
+(once (list :check #'display-graphic-p
+            :hooks 'server-after-make-frame-hook)
+  (unicode-fonts-setup))
+#+end_src
+
+**** =:initial-check=
+=:initial-check= is like =:check= but happens only at the beginning to determine whether to initially delay or run the code.  When both are specified, it overrides =:check=.  If you always want to delay initially and you have a check, you can use =:check #'some-check :initial-check (lambda () nil)=.
+
+#+begin_src emacs-lisp
+;; this is not the most practical example but should illustrate that different
+;; checks can potentially make sense
+(once (list :initial-check (lambda () after-init-time)
+            :hooks 'after-init-hook)
+  (column-number-mode)
+  (size-indication-mode))
+;; or
+(require 'once-conditions)
+(once once-init
+  (column-number-mode)
+  (size-indication-mode))
+#+end_src
+
+**** Local Checks
+Having checks for individual triggers is also possible:
+#+begin_src emacs-lisp
+(list :hooks (list 'some-hook #'some-check) 'no-check-hook
+      :before (list #'some-fun #'another-check) #'no-check-fun
+      :packages (list 'evil #'yet-another-check) 'no-check-package)
+#+end_src
+
+Unlike =:check= and =:initial-check=, local checks are passed the arguments the hook (in the case of ~run-hook-with-args~) or advised symbol was run with.  Packages can take a local check, but it won't be passed any arguments and may not be useful.
+
+Local checks allow mimicking the behavior of ~evil-delay~ and Doom's ~defer-until!~.
+#+begin_src emacs-lisp
+(once (list :hooks (list 'after-load-functions
+                         (lambda (&rest _)
+                           (boundp 'evil-normal-state-map))))
+  (define-key evil-normal-state-map ...))
+;; better to just do this; `once' is not needed
+(once-with 'evil
+  (define-key evil-normal-state-map ...))
+#+end_src
+
+For use cases, search how ~evil-delay~ and ~defer-until!~ are used (e.g. in Doom and on github in general).  Hooks you might use would be =after-load-functions= and =post-command-hook=.  You probably will not normally need this functionality, but it is there if you do need it.
+
+*** Condition Shorthand
+It is generally recommended that you store more complex conditions in a reusable, named variable using the full condition syntax like =once-conditions.el= does.  However, it is possible to use shorthand for more simple cases.  This means you do not need to explicitly specify =:hooks=, =:before= (and other advice keywords), or  =:packages=.
+
+The type will be inferred as follows:
+- Packages must be specified as strings (files name not feature name)
+- Hooks must be symbols ending in =-hook= or =-functions=
+- All other symbols will be considered to be functions to advise =:before=
+
+Any keyword arguments (=:check= and =:initial-check=) must be specified last.
+
+To enable shorthand, set =once-shorthand= to non-nil.  By setting this, you confirm that you understand how the inference works (e.g. you should not be surprised if you try ~(once '(evil ...) ...)~ and it does not work).
+
+#+begin_src emacs-lisp
+(setq once-shorthand t)
+(once (list #'foo 'bar-mode-hook "some-file") ...)
+(once "evil" ...)
+#+end_src
+
+*** ~once-x-require~
+~once-x-require~ is a more limited version of ~once~ that will require a package once some condition "x" is met.  It is a more generic version of Doom's =:after-call=:
+
+#+begin_src emacs-lisp
+;; require forge after magit loads
+(once-x-require (list :packages 'magit) 'forge)
+#+end_src
+
+When ~once-shorthand~ is enabled, you can also use shorthand:
+#+begin_src emacs-lisp
+(once-x-require "magit" 'forge)
+#+end_src
+
+Any number of features to require can be specified:
+#+begin_src emacs-lisp
+(once-x-require "magit" 'forge 'magit-todos ...)
+#+end_src
+
+**** Use-package =:once-x-require= / =:require-once=
+It is recommend you alias =:once-x-require= to =:require-once= using =once-use-package-aliases=.
+
+The keyword takes any number of ~once-x-require~ argument lists:
+#+begin_src emacs-lisp
+(use-package forge
+  :require-once ((list :packages 'magit) 'forge))
+;; or
+(use-package forge
+  :require-once ((:after #'magit-status) 'forge))
+
+;; with `once-shorthand' enabled
+(use-package forge
+  :require-once ("magit" 'forge))
+;; or
+(use-package forge
+  ;; :before advice unlike above (though order is not really important in this
+  ;; case)
+  :require-once (#'magit-status 'forge))
+#+end_src
+
+The benefit over using ~once-x-require~ directly is that the package to require can be inferred:
+#+begin_src emacs-lisp
+(use-package forge
+  :require-once ("magit"))
+;; or just
+(use-package forge
+  :require-once "magit")
+#+end_src
+
+The same caveat as for =:once= applies.  All lists (except a quoted symbol or function) are considered argument lists, so this is invalid:
+
+You can use =nil= in place of the package name if you want to additionally require some other extension:
+#+begin_src emacs-lisp
+(use-package foo
+  :require-once condition
+  :require-once (condition 'foo-extension))
+;; or just
+(use-package foo
+  :require-once (condition nil 'foo-extension ...))
+#+end_src
+
+**** Setup.el =:once-x-require= / =:require-once=
+It is recommend you alias =:once-x-require= to =:require-once= using =once-setup-aliases=.
+
+The keyword takes any number of ~once-x-require~ argument lists:
+#+begin_src emacs-lisp
+(setup (:package forge)
+  (:require-once (list :packages 'magit) 'forge))
+;; or
+(setup (:package forge)
+  (:require-once (:after #'magit-status) 'forge))
+
+;; with `once-shorthand' enabled
+(setup (:package forge)
+  (:require-once "magit" 'forge))
+;; or
+(setup (:package forge)
+  ;; :before advice unlike above (though order is not really important in this
+  ;; case)
+  (:require-once #'magit-status 'forge))
+#+end_src
+
+The benefit over using ~once-x-require~ directly is that the package to require can be inferred:
+#+begin_src emacs-lisp
+(setup (:package forge)
+  (:require-once "magit"))
+#+end_src
+
+You can use =nil= in place of the package name if you want to additionally require some other extension:
+#+begin_src emacs-lisp
+(setup (:package foo)
+  (:require-once condition)
+  (:require-once condition 'foo-extension))
+;; or just
+(setup (:package foo)
+  (:require-once condition nil 'foo-extension ...))
+#+end_src
+
+Note that the keyword is not repeatable.  If you want to specify a different condition, you will have to use a different =:require-once=:
+#+begin_src emacs-lisp
+(setup (:package foo)
+  (:require-once condition 'foo 'foo-extension ...)
+  (:require-once condition2 'foo-extension2 ...))
+#+end_src
+
+*** =:require-after=, =:once-call=, etc.
+I have not added these but am considering them.  =:require-after= would be like =:require-once= but only support packages.  The difference from =:after <package> :demand t= would be that =:init= would still run immediately, and all it would do would be to require the package.  It probably also would not support a complex condition system.
+
+#+begin_src emacs-lisp
+;; instead of this
+(use-package tree-sitter-langs
+  :after tree-sitter
+  :demand t)
+; this
+(use-package tree-sitter-langs
+  :require-after tree-sitter)
+#+end_src
+
+Whether this justifies a new keyword just to avoid the need to have quotes, I'm not sure.
+
+=:once-call= would just be like Doom's =:after-call=.  It would disallow packages and only accept hooks/functions (and no variables), which would allow not needing to quote them.  Again, I'm not sure this is worth a new keyword that is far more limited than the others (only supports hooks/functions and does not support variables for conditions).
+
+*** Pre-defined Conditions
+For some predefined ~once~ conditions, ~(require 'once-conditions)~.  All conditions come with a corresponding macro and variable of the same name, e.g. ~once-gui~.
+
+**** ~once-gui~ and ~once-tty~
+~once-gui~ and ~once-tty~ can be used to run some code once once the first graphical or terminal frame is created (now if the current frame already is).  Here is an example use case:
+#+begin_src emacs-lisp
+(require 'once-conditions)
+
+(use-package clipetty
+  :init
+  ;; only need to load if create a terminal frame
+  ;; `global-clipetty-mode' will not cause issues if enabled for a server with
+  ;; both graphical and terminal frames
+  (once-tty (global-clipetty-mode)))
+
+;; or
+(use-package clipetty
+  :once (once-tty #'global-clipetty-mode))
+#+end_src
+
+Similarly, some packages are only needed or only work in graphical frames, which is the use case of ~once-gui~.
+
+**** ~once-init~
+This basic condition will run after Emacs initialization has finished (now if it already has).
+
+#+begin_src emacs-lisp
+(once-init
+  (column-number-mode)
+  (size-indication-mode))
+#+end_src
+
+Most of the time, you should use a more specific condition.
+
+**** ~once-buffer~
+This condition will activate when switching buffers or after finding a file (the first time the current buffer changes after init).  It is the equivalent of using Doom's =doom-first-buffer-hook= or =on-first-buffer-hook= from [[https://github.com/ajgrf/on.el][on.el]] but is implemented using ~once~ rather than creating a new hook.
+
+#+begin_src emacs-lisp
+(once-buffer (winner-mode))
+;; or
+(use-package winner
+  :once once-buffer)
+#+end_src
+
+**** ~once-file~
+This condition will activate when finding the first file or opening dired.  It is the equivalent of using Doom's =doom-first-file-hook= or =on-first-file-hook= from [[https://github.com/ajgrf/on.el][on.el]] but is implemented using ~once~ rather than creating a new hook.
+
+#+begin_src emacs-lisp
+(once-file (recentf-mode))
+;; or
+(use-package recentf
+  :once once-file)
+#+end_src
+
+**** ~once-writable~
+This condition is similar to ~once-file~ but only activates in a writable buffer.
+
+**** ~once-evil-insert-and-writable~
+This condition is similar to ~once-file~ but only activates in a writable buffer when entering an evil "insert" state.  Which states are considered insert states can be changed by customizing =once-evil-insert-states= (insert and emacs by default).
+
+** ~once-require-incrementally~
+Not yet implemented.
+
+*** Use-package =:once-require-incrementally= / =:require-incrementally=
+*** Setup.el  =:once-require-incrementally= / =:require-incrementally=
+
+# increase max depth
+# Local Variables:
+# toc-org-max-depth: 4
+# End:
+

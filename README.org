@@ -3,16 +3,18 @@
 #+LANGUAGE: en
 #+TEXINFO_DIR_CATEGORY: Emacs
 #+TEXINFO_DIR_TITLE: Once: (once).
-#+TEXINFO_DIR_DESC: Extra init.el deferred evaluation utilties
+#+TEXINFO_DIR_DESC: Extra init.el deferred evaluation utilities
 
-# NOTE: If you are viewing this in org-mode, it is recommended that you install and enable [[https://github.com/snosov1/toc-org][toc-org]], so that all internal links open correctly
+[[https://github.com/emacs-magus/once/actions?query=workflow%3Atest][https://github.com/emacs-magus/once/actions/workflows/test.yml/badge.svg]]
+[[https://github.com/emacs-magus/once/actions?query=workflow%3Alint][https://github.com/emacs-magus/once/actions/workflows/lint.yml/badge.svg]]
+[[https://codecov.io/gh/emacs-magus/once][https://codecov.io/gh/emacs-magus/once/branch/master/graph/badge.svg]]
 
 #+BEGIN_QUOTE
 Once upon a time, there was a Princess who lived in a marzipan castle...
 #+END_QUOTE
 
 * About
-*NOTE: I do not recommend trying to use this package in your configuration until I have added tests.  Before then, it may be completely broken.*
+*NOTE: I do not recommend trying to use this package in your configuration until it is on MELPA unless you are willing to deal with breaking changes.*
 
 =once.el= provides extra delayed evaluation utilities meant to be used in your init.el.  The utilities are primarily meant to simplify specifying conditions for when packages should load (and/or minor modes be activated).  It can also be used more generally as an ~eval-after-load~ replacement to run arbitrary code one time once some (simple or complex) condition is met.
 
@@ -30,7 +32,32 @@ If you are familiar with Doom's =:after-call= (transient hooks and advice), =:de
 - [[#provided-utilities][Provided Utilities]]
   - [[#eval-after-load-alternatives][~eval-after-load~ Alternatives]]
   - [[#once-only-deferred-evaluation][Once Only Deferred Evaluation]]
+    - [[#once-x-call][~once-x-call~]]
+    - [[#once][~once~]]
+      - [[#use-package-once][Use-package =:once=]]
+      - [[#setupel-once][Setup.el =:once=]]
+    - [[#condition-system-details][Condition System Details]]
+      - [[#hooks][=:hooks=]]
+      - [[#packages][=:packages=]]
+      - [[#advice][advice]]
+      - [[#check][=:check=]]
+      - [[#initial-check][=:initial-check=]]
+      - [[#local-checks][Local Checks]]
+    - [[#condition-shorthand][Condition Shorthand]]
+    - [[#once-x-require][~once-x-require~]]
+      - [[#use-package-once-x-require--require-once][Use-package =:once-x-require= / =:require-once=]]
+      - [[#setupel-once-x-require--require-once][Setup.el =:once-x-require= / =:require-once=]]
+    - [[#require-after-once-call-etc][=:require-after=, =:once-call=, etc.]]
+    - [[#pre-defined-conditions][Pre-defined Conditions]]
+      - [[#once-gui-and-once-tty][~once-gui~ and ~once-tty~]]
+      - [[#once-init][~once-init~]]
+      - [[#once-buffer][~once-buffer~]]
+      - [[#once-file][~once-file~]]
+      - [[#once-writable][~once-writable~]]
+      - [[#once-evil-insert-and-writable][~once-evil-insert-and-writable~]]
   - [[#once-require-incrementally][~once-require-incrementally~]]
+    - [[#use-package-once-require-incrementally--require-incrementally][Use-package =:once-require-incrementally= / =:require-incrementally=]]
+    - [[#setupel--once-require-incrementally--require-incrementally][Setup.el  =:once-require-incrementally= / =:require-incrementally=]]
 
 * Feature Summary
 - ~once~ - Run code one time once some simple or complex condition (involving hooks, advice, package/file loads, and extra checks) is met
@@ -402,8 +429,6 @@ Any WHERE keyword (e.g. =:before=) can be used to specify advice:
 **** =:check=
 =:check= can be specified as a function to run to determine whether to run now.  It will be passed no arguments.
 
-If no check is given, the code to run will always be delayed.  The only exception is if you use =:packages= and a package has already been loaded.  In that case, the code will run immediately.
-
 When a check is given and it returns non-nil, the code will be run immediately.  Otherwise, it will be delayed.  Then later when a hook runs, package loads, or advised symbol is called, the check will run again to determine whether to run the delayed code now or continue to wait.
 
 #+begin_src emacs-lisp
@@ -413,8 +438,10 @@ When a check is given and it returns non-nil, the code will be run immediately. 
   (unicode-fonts-setup))
 #+end_src
 
+If no check is given, the code to run will always be delayed.  The only exception is if you use =:packages= and a package has already been loaded.  If no =:check= is given and any specified package has loaded, the code will run immediately.  On the other hand, if =:check= is specified and fails initially, the code will always be delayed even if one of the packages has already loaded.  In that case, some other method (a different package load or a hook or advice) will have to trigger later when the =:check= returns non-nil for the code to run.
+
 **** =:initial-check=
-=:initial-check= is like =:check= but happens only at the beginning to determine whether to initially delay or run the code.  When both are specified, it overrides =:check=.  If you always want to delay initially and you have a check, you can use =:check #'some-check :initial-check (lambda () nil)=.
+=:initial-check= is like =:check= but happens only at the beginning to determine whether to initially delay or run the code.  When both are specified, =:check= only applies later.  If you always want to delay initially and but have a check later, you can use =:check #'some-check :initial-check (lambda () nil)=.
 
 #+begin_src emacs-lisp
 ;; this is not the most practical example but should illustrate that different
@@ -425,7 +452,7 @@ When a check is given and it returns non-nil, the code will be run immediately. 
   (size-indication-mode))
 ;; or
 (require 'once-conditions)
-(once once-init
+(once-init
   (column-number-mode)
   (size-indication-mode))
 #+end_src

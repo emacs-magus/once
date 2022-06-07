@@ -1,0 +1,44 @@
+name: Test
+
+on:
+  pull_request:
+    paths:
+      - '**.el'
+      - '**test.yml'
+  push:
+    paths:
+      - '**.el'
+      - '**test.yml'
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        emacs_version:
+          # TODO why does it hang?
+          # - 26.3
+          - 27.2
+          - 28.1
+          # - snapshot
+        # include:
+        #   - emacs_version: snapshot
+        #     allow-failure: true
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Emacs and everything needed for makem"
+        uses: emacs-magus/setup-makem@master
+        with:
+          emacs_version: ${{ matrix.emacs_version }}
+          os: ${{ matrix.os }}
+      - name: Test
+        env:
+            UNDERCOVER_FORCE: do-coverage
+        run: make test
+        continue-on-error: ${{ matrix.allow_failure == 'true' }}
+      - uses: codecov/codecov-action@v1
+        with:
+          # set in repo settings
+          token: ${{ secrets.CODECOV_TOKEN }}

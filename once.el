@@ -68,9 +68,9 @@ keywords must come at the end (:check and :initial-check).
 This will also allow using a single symbol or string as the condition.
 
 For example:
- (once #'foo ...)
+\(once #'foo ...)
 is the same as
- (once (list :before #'foo) ...)
+\(once (list :before #'foo) ...)
 
 By setting this variable, you confirm that you understand how the inference
 works and what its limitations are (e.g. you cannot specify a package as a
@@ -182,6 +182,8 @@ run FORM now and do not add FORM to `after-load-alist' for that file.
 Otherwise, add the FORM to `after-load-alist'.  If TRANSIENT is non-nil, remove
 it from `after-load-alist' once it runs.
 
+When delaying FORM, return the constructed delay function.
+
 See `eval-after-load' for more information."
   (declare (indent 1)
            (compiler-macro
@@ -214,7 +216,8 @@ See `eval-after-load' for more information."
            delayed-func
            :after
            (lambda (&rest _)
-             (once--after-load-remove regexp-or-feature delayed-func))))))))
+             (once--after-load-remove regexp-or-feature delayed-func))))
+        delayed-func))))
 
 ;;;###autoload
 (defun once-eval-after-load (file form)
@@ -246,13 +249,13 @@ information."
   "Advise functions to remove themselves once any of them run.
 
 HOOK-PAIRS should be in the format:
- ('hook-name <hook function>)
+\('hook-name <hook function>)
 
 ADVICE-PAIRS should be in the format:
- ('advised-symbol <advice function>)
+\('advised-symbol <advice function>)
 
 PACKAGE-PAIRS should be in the format:
- (<regexp or feature symbol> <function>)
+\(<regexp or feature symbol> <function>)
 
 The difference from sharing a single transient function between hooks and advice
 is that this allows different functions with specific checks (e.g. based on
@@ -277,10 +280,12 @@ arguments passed to an advised function)."
                      do (remove-hook hook fun))
             (cl-loop for (advised-symbol fun) in advice-pairs
                      do (advice-remove advised-symbol fun))
-            (cl-loop for (package fun) in package-pairs
-                     do (once--after-load-remove
-                         (once--file-to-regexp-or-feature package)
-                         fun))
+            (cl-loop for (package _ delay-fun) in package-pairs
+                     do (progn
+                          (once--after-load-remove
+                           (once--file-to-regexp-or-feature package)
+                           delay-fun)
+                          (fmakunbound delay-fun)))
             (dolist (function all-functions)
               (advice-remove function name)
               (fmakunbound function))
@@ -347,19 +352,19 @@ FUNCTION will only run once.  Once it runs, all added functions will be removed
 from each hook and advised symbol.
 
 HOOKS should be a list with each item in the form:
- (<hook symbol> <local-check function or nil>)
+\(<hook symbol> <local-check function or nil>)
 e.g.
- ('some-hook (lambda () (foo-check)))
+\(\\='some-hook (lambda () (foo-check)))
 
 ADVISE-SYMBOLS should be a list with each item in the form:
- (<where> <advise function symbol> <optional local-check>)
+\(<where> <advise function symbol> <optional local-check>)
 e.g.
- (:before 'some-symbol (lambda () (foo-check)))
+\(:before \\='some-symbol (lambda () (foo-check)))
 
 PACKAGES should be a list with each item in the form:
- (<regexp or feature symbol> <local-check function or nil>)
+\(<regexp or feature symbol> <local-check function or nil>)
 e.g.
- ('some-package (lambda () (foo-check)))"
+\(\\='some-package (lambda () (foo-check)))"
   (let ((hook-pairs
          (cl-loop for (hook local-check) in hooks
                   collect (let ((maybe-function
@@ -380,13 +385,20 @@ e.g.
                     (list advise-symbol maybe-function))))
         (package-pairs
          (cl-loop for (package local-check) in packages
-                  collect (let ((maybe-function
-                                 (once--make-conditional-function
-                                  function
-                                  local-check
-                                  check)))
-                            (once--eval-after-load package maybe-function)
-                            (list package maybe-function)))))
+                  unless (once--file-loaded-p package)
+                  collect
+                  (let ((maybe-function (once--make-conditional-function
+                                         function
+                                         local-check
+                                         check)))
+                    (list package
+                          ;; function to advise to determine if checks
+                          ;; succeed/whether teardown should happen
+                          maybe-function
+                          ;; function to remove from `after-load-alist' during
+                          ;; teardown
+                          (once--eval-after-load package
+                            maybe-function))))))
     (once--make-functions-transient hook-pairs advice-pairs package-pairs)))
 
 (defun once--call-now-or-later (function hooks advise-symbols packages
@@ -397,10 +409,13 @@ non-nil if FUNCTION should run now.  If any PACKAGES have already been loaded,
 run FUNCTION now.  When delaying FUNCTION, run it the first time a hook from
 HOOKS triggers, a symbol in ADVISE-SYMBOLS is called, or a package in PACKAGES
 loads."
-  (if (funcall (or (cl-some #'once--file-loaded-p (mapcar #'car packages))
-                   initial-check check (lambda () nil)))
-      (funcall function)
-    (once--call-later function hooks advise-symbols packages check)))
+  (let ((check (or initial-check check)))
+    (if (if check
+            (funcall check)
+          (and (not check)
+               (cl-some #'once--file-loaded-p (mapcar #'car packages))))
+        (funcall function)
+      (once--call-later function hooks advise-symbols packages check))))
 
 (defun once--condition-item-to-list (item)
   "Return ITEM as as (list ITEM nil) if it is not already a list.
@@ -418,7 +433,8 @@ If it is already a list, just return ITEM."
   (let (hooks
         advise-symbols
         packages)
-    (while (not (keywordp (car condition)))
+    (while (and (car condition)
+                (not (keywordp (car condition))))
       (let ((item (pop condition)))
         (cond ((and (symbolp item)
                     (string-match-p once--shorthand-hook-regexp
@@ -495,7 +511,7 @@ Unlike `satch-add-hook' and `satch-advice-add' (from satch.el), all FUNCTIONS
 should take no arguments.
 
 CONDITION should be a condition in the following format:
- (list :hooks arg1 arg2... :before arg1 arg2... :check (lambda () ...) ...)
+\(list :hooks arg1 arg2... :before arg1 arg2... :check (lambda () ...) ...)
 
 Here are the available CONDITION keywords:
 
@@ -520,9 +536,14 @@ Here are the available CONDITION keywords:
 
 You must specify at least one of :hooks, :packages, or the advice keywords.
 
-If you want to potentially run FUNCTIONS immediately on, you must specify
+If you want to potentially run FUNCTIONS immediately, you must specify
 :initial-check and/or :check.  The only exception is if you specify :packages.
-If any of the specified packages has loaded, FUNCTIONS will be run immediately.
+If there are no checks and any of the specified packages has loaded, FUNCTIONS
+will be run immediately.  On the other hand, if :check is specified and fails
+initially, the code will always be delayed even if one of the packages has
+already loaded.  In that case, some other method (a different package load or a
+hook or advice) will have to trigger later when the :check returns non-nil for
+FUNCTIONS to run.
 
 If you specify :check but do not want FUNCTIONS to run immediately if the check
 passes, you should specify :initial-check as (lambda () nil).
@@ -531,9 +552,9 @@ Hook/advice arguments can specify a \"local check\" that only applies to a
 specific hook or advised function by specifying a list like (<hook>
 <specific-check>) or (<advise-function> <specific-check>) instead of a single
 symbol.  For example:
- (list
-  :hooks
-  (list 'after-load-functions (lambda (_load-file) (boundp 'some-symbol))))
+\(list
+ :hooks
+ (list \\='after-load-functions (lambda (_load-file) (boundp \\='some-symbol))))
 
 Unlike the :check and :initial-check functions, which take no arguments, a local
 check function will be passed whatever arguments are given for the hook or
@@ -545,28 +566,29 @@ this may not often be useful.
 
 Here is a phony example of what a `once-x-call' invocation looks like (you
 would never actually use this condition):
- (once-x-call (list :hooks 'pre-command-hook-hook 'another-hook
-                    :before 'after-find-file
-                    :packages 'evil
-                    :initial-check (lambda () (and (bar) (foo)))
-                    :check (lambda () (foo)))
-              #'some-mode)
+\(once-x-call (list :hooks \\='pre-command-hook-hook \\='another-hook
+                   :before \\='after-find-file
+                   :packages \\='evil
+                   :initial-check (lambda () (and (bar) (foo)))
+                   :check (lambda () (foo)))
+             #'some-mode)
 
 If you set `once-shorthand' to non-nil, you can also use a more brief
 condition syntax.  See its documentation for more information.
 
 For real examples, see the README or specific once \"x\" utilities like
 `once-gui' and `once-buffer'."
+  (declare (indent 1))
   (let ((parsed-condition (once--parse-condition condition)))
     (dolist (fun functions)
       (apply #'once--call-now-or-later fun parsed-condition))))
 
 ;;;###autoload
 (defmacro once (condition &rest body)
-  "Execute BODY one time when CONDITION is met.
+  "When CONDITION is met for the first time, execute BODY.
 If the first item is BODY is anything that could be a function, it will be
 considered to be a list of functions:
- (once <condition> #'foo 'bar some-func-in-var (lambda ()))
+\(once condition #'foo \\='bar some-func-in-var (lambda ()))
 
 Otherwise, if the first item is in the form (fun arg1), it will be considered to
 be a function body:
@@ -576,7 +598,7 @@ be a function body:
    (baz))
 
 See `once-x-call' for more information, including how to specify CONDITION."
-  (declare (indent 1))
+  (declare (indent 1) (debug (form &or [body def-body])))
   (if (or (symbolp (car body))
           (and (listp (car body))
                (memq (caar body) '(lambda function quote))))
@@ -585,6 +607,7 @@ See `once-x-call' for more information, including how to specify CONDITION."
 
 (defun once-x-require (condition &rest packages)
   "Once CONDITION is met the first time, require PACKAGES."
+  (declare (indent 1))
   (let* ((package-strings (mapcar (lambda (x) (format "%s" x))
                                   packages))
          (require-fun (intern (concat "once-require-"
@@ -597,9 +620,6 @@ See `once-x-call' for more information, including how to specify CONDITION."
       (format "Require %s." (string-join package-strings ", ")))
     (once-x-call condition require-fun)))
 
-;; * Require Incrementally
-;; TODO implement
-
 (provide 'once)
-;; LocalWords:  arg satch el uninterned init
+;; LocalWords: arg satch el uninterned init
 ;;; once.el ends here

@@ -1,0 +1,24 @@
+name: Lint
+
+on:
+  pull_request:
+    paths:
+      - '**.el'
+      - '**lint.yml'
+  push:
+    paths:
+      - '**.el'
+      - '**lint.yml'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Emacs and everything needed for makem"
+        uses: emacs-magus/setup-makem@master
+        with:
+          emacs_version: 28.1
+          os: ubuntu-latest
+      - name: Lint
+        run: make lint

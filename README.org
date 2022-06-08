@@ -5,15 +5,18 @@
 #+TEXINFO_DIR_TITLE: Once: (once).
 #+TEXINFO_DIR_DESC: Extra init.el deferred evaluation utilities
 
-[[https://github.com/emacs-magus/once/actions?query=workflow%3Atest][https://github.com/emacs-magus/once/actions/workflows/test.yml/badge.svg]]
-[[https://github.com/emacs-magus/once/actions?query=workflow%3Alint][https://github.com/emacs-magus/once/actions/workflows/lint.yml/badge.svg]]
-[[https://codecov.io/gh/emacs-magus/once][https://codecov.io/gh/emacs-magus/once/branch/master/graph/badge.svg]]
+#+html: <a href="https://github.com/emacs-magus/once/actions?query=workflow%3Atest"><img alt="Test action status" src="https://github.com/emacs-magus/once/actions/workflows/test.yml/badge.svg"/></a>
+#+html: <a href="https://github.com/emacs-magus/once/actions?query=workflow%3Alint"><img alt="Lint action status" src="https://github.com/emacs-magus/once/actions/workflows/lint.yml/badge.svg"/></a>
+#+html: <a href="https://codecov.io/gh/emacs-magus/once"><img alt="Code coverage" src="https://codecov.io/gh/emacs-magus/once/branch/master/graph/badge.svg"/></a>
 
 #+BEGIN_QUOTE
 Once upon a time, there was a Princess who lived in a marzipan castle...
 #+END_QUOTE
 
 * About
+:PROPERTIES:
+:CUSTOM_ID: about
+:END:
 *NOTE: I do not recommend trying to use this package in your configuration until it is on MELPA unless you are willing to deal with breaking changes.*
 
 =once.el= provides extra delayed evaluation utilities meant to be used in your init.el.  The utilities are primarily meant to simplify specifying conditions for when packages should load (and/or minor modes be activated).  It can also be used more generally as an ~eval-after-load~ replacement to run arbitrary code one time once some (simple or complex) condition is met.
@@ -21,7 +24,12 @@ Once upon a time, there was a Princess who lived in a marzipan castle...
 If you are familiar with Doom's =:after-call= (transient hooks and advice), =:defer-incrementally=, and hooks like =doom-first-input-hook= and =doom-first-file-hook=, this package provides a utilities to achieve the same thing.  One difference is that the primary utility ~once~ is more flexible/generic and can be used to replace =:after-call=, Doom's "first" hooks, and more.  In combination with the other [[https://github.com/emacs-magus][emacs-magus]] packages (especially [[https://github.com/emacs-magus/satch.el][satch.el]]), once.el may be useful for anyone coming from Doom Emacs or some other distribution/starter kit who wants some of their helpful init.el configuration utilities without having to
  copy the code.  For more information on replacing previously Doom-only utilities with standalone packages, see [[https://github.com/emacs-magus#replacing-unpackaged-doom-emacs-functionality][Replacing Doom]].
 
-* Table of Contents                                            :TOC:noexport:
+* Table of Contents :noexport:
+:PROPERTIES:
+:TOC:      :include all :ignore this
+:END:
+
+:CONTENTS:
 - [[#about][About]]
 - [[#feature-summary][Feature Summary]]
 - [[#examples][Examples]]
@@ -30,36 +38,40 @@ If you are familiar with Doom's =:after-call= (transient hooks and advice), =:de
   - [[#setupel][Setup.el]]
   - [[#not-requiring-at-load-time][Not Requiring at Load Time]]
 - [[#provided-utilities][Provided Utilities]]
-  - [[#eval-after-load-alternatives][~eval-after-load~ Alternatives]]
+  - [[#eval-after-load-alternatives][eval-after-load Alternatives]]
   - [[#once-only-deferred-evaluation][Once Only Deferred Evaluation]]
-    - [[#once-x-call][~once-x-call~]]
-    - [[#once][~once~]]
-      - [[#use-package-once][Use-package =:once=]]
-      - [[#setupel-once][Setup.el =:once=]]
+    - [[#once-x-call][once-x-call]]
+    - [[#once][once]]
+      - [[#use-package-once][Use-package :once]]
+      - [[#setupel-once][Setup.el :once]]
     - [[#condition-system-details][Condition System Details]]
-      - [[#hooks][=:hooks=]]
-      - [[#packages][=:packages=]]
+      - [[#hooks][:hooks]]
+      - [[#packages][:packages]]
       - [[#advice][advice]]
-      - [[#check][=:check=]]
-      - [[#initial-check][=:initial-check=]]
+      - [[#check][:check]]
+      - [[#initial-check][:initial-check]]
       - [[#local-checks][Local Checks]]
     - [[#condition-shorthand][Condition Shorthand]]
-    - [[#once-x-require][~once-x-require~]]
-      - [[#use-package-once-x-require--require-once][Use-package =:once-x-require= / =:require-once=]]
-      - [[#setupel-once-x-require--require-once][Setup.el =:once-x-require= / =:require-once=]]
-    - [[#require-after-once-call-etc][=:require-after=, =:once-call=, etc.]]
+    - [[#once-x-require][once-x-require]]
+      - [[#use-package-once-x-require--require-once][Use-package :once-x-require / :require-once]]
+      - [[#setupel-once-x-require--require-once][Setup.el :once-x-require / :require-once]]
+    - [[#require-after-once-call-etc][:require-after, :once-call, etc.]]
     - [[#pre-defined-conditions][Pre-defined Conditions]]
-      - [[#once-gui-and-once-tty][~once-gui~ and ~once-tty~]]
-      - [[#once-init][~once-init~]]
-      - [[#once-buffer][~once-buffer~]]
-      - [[#once-file][~once-file~]]
-      - [[#once-writable][~once-writable~]]
-      - [[#once-evil-insert-and-writable][~once-evil-insert-and-writable~]]
-  - [[#once-require-incrementally][~once-require-incrementally~]]
-    - [[#use-package-once-require-incrementally--require-incrementally][Use-package =:once-require-incrementally= / =:require-incrementally=]]
-    - [[#setupel--once-require-incrementally--require-incrementally][Setup.el  =:once-require-incrementally= / =:require-incrementally=]]
+      - [[#once-gui-and-once-tty][once-gui and once-tty]]
+      - [[#once-init][once-init]]
+      - [[#once-buffer][once-buffer]]
+      - [[#once-file][once-file]]
+      - [[#once-writable][once-writable]]
+      - [[#once-evil-insert-and-writable][once-evil-insert-and-writable]]
+  - [[#once-require-incrementally][once-require-incrementally]]
+    - [[#use-package-once-require-incrementally--require-incrementally][Use-package :once-require-incrementally / :require-incrementally]]
+    - [[#setupel--once-require-incrementally--require-incrementally][Setup.el  :once-require-incrementally / :require-incrementally]]
+:END:
 
 * Feature Summary
+:PROPERTIES:
+:CUSTOM_ID: feature-summary
+:END:
 - ~once~ - Run code one time once some simple or complex condition (involving hooks, advice, package/file loads, and extra checks) is met
 - ~once-x-require~ - Once "x" condition is met, require some package(s)
 - ~once-require-incrementally~ - Space out requiring many packages during idle time (equivalent to Doom's =:defer-incrementally=)
@@ -68,6 +80,9 @@ If you are familiar with Doom's =:after-call= (transient hooks and advice), =:de
 - Optional integration with [[https://github.com/jwiegley/use-package][use-package]] and [[https://github.com/phikal/setup.el][setup.el]]
 
 * Examples
+:PROPERTIES:
+:CUSTOM_ID: examples
+:END:
 ~once~ is a swiss army knife for deferring packages/configuration.
 
 It can be used to run code the first time a hook runs:
@@ -164,7 +179,13 @@ With =use-package=, the mode to run can be inferred:
 #+end_src
 
 * Example Setup
+:PROPERTIES:
+:CUSTOM_ID: example-setup
+:END:
 ** Use Package
+:PROPERTIES:
+:CUSTOM_ID: use-package
+:END:
 #+begin_src emacs-lisp
 (eval-and-compile
   (setq use-package-always-defer t))
@@ -188,6 +209,9 @@ With =use-package=, the mode to run can be inferred:
 #+end_src
 
 ** Setup.el
+:PROPERTIES:
+:CUSTOM_ID: setupel
+:END:
 #+begin_src emacs-lisp
 (setup (:package once)
   (:require once once-conditions)
@@ -203,12 +227,21 @@ With =use-package=, the mode to run can be inferred:
 #+end_src
 
 ** Not Requiring at Load Time
+:PROPERTIES:
+:CUSTOM_ID: not-requiring-at-load-time
+:END:
 Like use-package, =once-use-package= and =once-setup= are not required at load time if you are compiling your init.el.  This means you can require them at compile time only (e.g. =(eval-when-compile (require 'once-use-package))=).  Note that if you then will use =use-package= or =setup= with any once.el keyword after loading your init.el file (e.g. evaluating a new =use-package= statement in your init.el or in a scratch buffer), you will need to manually require =once-use-package= or =once-setup=.  If you do not understand what this means, it is recommended that you use the above configuration instead, which should work in all cases.  =eval-when-compile= here will not save a significant amount of startup time in the first place.
 
 Also note that compiling your init file is not generally recommended, and if you are not aware of the caveats, you probably should not be compiling your init file.
 
 * Provided Utilities
+:PROPERTIES:
+:CUSTOM_ID: provided-utilities
+:END:
 ** ~eval-after-load~ Alternatives
+:PROPERTIES:
+:CUSTOM_ID: eval-after-load-alternatives
+:END:
 Once provides ~once-eval-after-load~, ~once-with-eval-after-load~ / ~once-with~ as ~eval-after-load~ alternatives.  The difference is that if a package has already loaded, the once.el versions will not needlessly add anything to =after-load-alist=.  ~eval-after-load~ will always add to =after-load-alist=.  See [[https://github.com/noctuid/general.el/issues/113][here]] for some background information.  If the package/file has not yet loaded, the once.el versions will also remove from =after-load-alist= after the file loads.
 
 The functional difference is that with ~eval-after-load~, the given form will run every time the specified file is loaded.  With ~once-eval-after-load~, the given form will only run once.  This difference usually should not matter, though I think the once.el version is usually what a user wants.  For example, if you were incrementally testing some =use-package= =:config= block, and added a malformed statement that caused an error, you would get that error every time you loaded the package (e.g. if you updated the package and the re-evaluated the file with the ~provide~ call, you would get the error again; the only simple way to fix this is to restart Emacs).
@@ -225,7 +258,13 @@ If for whatever reason you do need the original behavior for some situation, jus
 #+end_src
 
 ** Once Only Deferred Evaluation
+:PROPERTIES:
+:CUSTOM_ID: once-only-deferred-evaluation
+:END:
 *** ~once-x-call~
+:PROPERTIES:
+:CUSTOM_ID: once-x-call
+:END:
 ~once-x-call~ is a more flexible way of deferring code/package loading.  If using just hooks, advice, or ~eval-after-load~ is not good enough, ~once-x-call~ can be used to create a condition to run the code that combines them along with various optional checks.
 
 The "once" has two meanings:
@@ -263,9 +302,12 @@ Here is an example of ~once-x-call~ being used in place of Doom's =:after-call=:
 
 Unlike ~satch-add-hook~ and ~satch-advice-add~ (from [[https://github.com/emacs-magus/satch.el][satch.el]]), the functions specified to run for ~call-x-once~ should take no arguments.
 
-~call-x-once~ is more generic than =:after-call= and the other mentioned utilities and can handle most conditions for which you want to load a package or run some code.  For more information on specifying conditions, see [[#condition-system][Condition System]].  For examples see below and the pre-defined conditions in =once-conditions.el=.
+~call-x-once~ is more generic than =:after-call= and the other mentioned utilities and can handle most conditions for which you want to load a package or run some code.  For more information on specifying conditions, see [[#condition-system-details][Condition System]].  For examples see below and the pre-defined conditions in =once-conditions.el=.
 
 *** ~once~
+:PROPERTIES:
+:CUSTOM_ID: once
+:END:
 ~once~ is a convenience macro over ~once-x-call~ that can act as a drop-in replacement for sane invocations.  If the first argument is something that could be a function (symbols, functions, variables, and lambdas), all arguments are considered to be functions.  Otherwise, all arguments are considered to be body forms to run.
 
 #+begin_src emacs-lisp
@@ -290,6 +332,9 @@ Unlike ~satch-add-hook~ and ~satch-advice-add~ (from [[https://github.com/emacs-
 #+end_src
 
 **** Use-package =:once=
+:PROPERTIES:
+:CUSTOM_ID: use-package-once
+:END:
 =:once= is a use-package keyword that just takes a ~once~ argument list:
 #+begin_src emacs-lisp
 (require 'once-conditions)
@@ -350,6 +395,9 @@ Note that any list (other than =(quote some-hook)= or =(function some-function)=
 #+end_src
 
 **** Setup.el =:once=
+:PROPERTIES:
+:CUSTOM_ID: setupel-once
+:END:
 =:once= is a setup.el keyword that just takes a ~once~ argument list:
 #+begin_src emacs-lisp
 (require 'once-conditions)
@@ -392,9 +440,15 @@ The benefit over just using ~(once ...)~ is that when ~once-shorthand~ is non-ni
 #+end_src
 
 *** Condition System Details
+:PROPERTIES:
+:CUSTOM_ID: condition-system-details
+:END:
 At least one of =:hooks=, =:packages=, and the advice keywords should be specified.  When more than one is specified, any of them can trigger the condition (the behavior is OR not AND).  The check keywords are optional.
 
 **** =:hooks=
+:PROPERTIES:
+:CUSTOM_ID: hooks
+:END:
 =:hooks= should be 1+ hooks that can trigger the functions to run.
 
 #+begin_src emacs-lisp
@@ -405,6 +459,9 @@ At least one of =:hooks=, =:packages=, and the advice keywords should be specifi
 #+end_src
 
 **** =:packages=
+:PROPERTIES:
+:CUSTOM_ID: packages
+:END:
 =:packages= should be 1+ packages that can trigger the functions to run when loaded.
 
 #+begin_src emacs-lisp
@@ -417,6 +474,9 @@ At least one of =:hooks=, =:packages=, and the advice keywords should be specifi
 #+end_src
 
 **** advice
+:PROPERTIES:
+:CUSTOM_ID: advice
+:END:
 Any WHERE keyword (e.g. =:before=) can be used to specify advice:
 
 #+begin_src emacs-lisp
@@ -427,6 +487,9 @@ Any WHERE keyword (e.g. =:before=) can be used to specify advice:
 #+end_src
 
 **** =:check=
+:PROPERTIES:
+:CUSTOM_ID: check
+:END:
 =:check= can be specified as a function to run to determine whether to run now.  It will be passed no arguments.
 
 When a check is given and it returns non-nil, the code will be run immediately.  Otherwise, it will be delayed.  Then later when a hook runs, package loads, or advised symbol is called, the check will run again to determine whether to run the delayed code now or continue to wait.
@@ -441,6 +504,9 @@ When a check is given and it returns non-nil, the code will be run immediately. 
 If no check is given, the code to run will always be delayed.  The only exception is if you use =:packages= and a package has already been loaded.  If no =:check= is given and any specified package has loaded, the code will run immediately.  On the other hand, if =:check= is specified and fails initially, the code will always be delayed even if one of the packages has already loaded.  In that case, some other method (a different package load or a hook or advice) will have to trigger later when the =:check= returns non-nil for the code to run.
 
 **** =:initial-check=
+:PROPERTIES:
+:CUSTOM_ID: initial-check
+:END:
 =:initial-check= is like =:check= but happens only at the beginning to determine whether to initially delay or run the code.  When both are specified, =:check= only applies later.  If you always want to delay initially and but have a check later, you can use =:check #'some-check :initial-check (lambda () nil)=.
 
 #+begin_src emacs-lisp
@@ -458,6 +524,9 @@ If no check is given, the code to run will always be delayed.  The only exceptio
 #+end_src
 
 **** Local Checks
+:PROPERTIES:
+:CUSTOM_ID: local-checks
+:END:
 Having checks for individual triggers is also possible:
 #+begin_src emacs-lisp
 (list :hooks (list 'some-hook #'some-check) 'no-check-hook
@@ -481,6 +550,9 @@ Local checks allow mimicking the behavior of ~evil-delay~ and Doom's ~defer-unti
 For use cases, search how ~evil-delay~ and ~defer-until!~ are used (e.g. in Doom and on github in general).  Hooks you might use would be =after-load-functions= and =post-command-hook=.  You probably will not normally need this functionality, but it is there if you do need it.
 
 *** Condition Shorthand
+:PROPERTIES:
+:CUSTOM_ID: condition-shorthand
+:END:
 It is generally recommended that you store more complex conditions in a reusable, named variable using the full condition syntax like =once-conditions.el= does.  However, it is possible to use shorthand for more simple cases.  This means you do not need to explicitly specify =:hooks=, =:before= (and other advice keywords), or  =:packages=.
 
 The type will be inferred as follows:
@@ -499,6 +571,9 @@ To enable shorthand, set =once-shorthand= to non-nil.  By setting this, you conf
 #+end_src
 
 *** ~once-x-require~
+:PROPERTIES:
+:CUSTOM_ID: once-x-require
+:END:
 ~once-x-require~ is a more limited version of ~once~ that will require a package once some condition "x" is met.  It is a more generic version of Doom's =:after-call=:
 
 #+begin_src emacs-lisp
@@ -517,6 +592,9 @@ Any number of features to require can be specified:
 #+end_src
 
 **** Use-package =:once-x-require= / =:require-once=
+:PROPERTIES:
+:CUSTOM_ID: use-package-once-x-require--require-once
+:END:
 It is recommend you alias =:once-x-require= to =:require-once= using =once-use-package-aliases=.
 
 The keyword takes any number of ~once-x-require~ argument lists:
@@ -559,6 +637,9 @@ You can use =nil= in place of the package name if you want to additionally requi
 #+end_src
 
 **** Setup.el =:once-x-require= / =:require-once=
+:PROPERTIES:
+:CUSTOM_ID: setupel-once-x-require--require-once
+:END:
 It is recommend you alias =:once-x-require= to =:require-once= using =once-setup-aliases=.
 
 The keyword takes any number of ~once-x-require~ argument lists:
@@ -603,6 +684,9 @@ Note that the keyword is not repeatable.  If you want to specify a different con
 #+end_src
 
 *** =:require-after=, =:once-call=, etc.
+:PROPERTIES:
+:CUSTOM_ID: require-after-once-call-etc
+:END:
 I have not added these but am considering them.  =:require-after= would be like =:require-once= but only support packages.  The difference from =:after <package> :demand t= would be that =:init= would still run immediately, and all it would do would be to require the package.  It probably also would not support a complex condition system.
 
 #+begin_src emacs-lisp
@@ -620,9 +704,15 @@ Whether this justifies a new keyword just to avoid the need to have quotes, I'm 
 =:once-call= would just be like Doom's =:after-call=.  It would disallow packages and only accept hooks/functions (and no variables), which would allow not needing to quote them.  Again, I'm not sure this is worth a new keyword that is far more limited than the others (only supports hooks/functions and does not support variables for conditions).
 
 *** Pre-defined Conditions
+:PROPERTIES:
+:CUSTOM_ID: pre-defined-conditions
+:END:
 For some predefined ~once~ conditions, ~(require 'once-conditions)~.  All conditions come with a corresponding macro and variable of the same name, e.g. ~once-gui~.
 
 **** ~once-gui~ and ~once-tty~
+:PROPERTIES:
+:CUSTOM_ID: once-gui-and-once-tty
+:END:
 ~once-gui~ and ~once-tty~ can be used to run some code once once the first graphical or terminal frame is created (now if the current frame already is).  Here is an example use case:
 #+begin_src emacs-lisp
 (require 'once-conditions)
@@ -642,6 +732,9 @@ For some predefined ~once~ conditions, ~(require 'once-conditions)~.  All condit
 Similarly, some packages are only needed or only work in graphical frames, which is the use case of ~once-gui~.
 
 **** ~once-init~
+:PROPERTIES:
+:CUSTOM_ID: once-init
+:END:
 This basic condition will run after Emacs initialization has finished (now if it already has).
 
 #+begin_src emacs-lisp
@@ -653,6 +746,9 @@ This basic condition will run after Emacs initialization has finished (now if it
 Most of the time, you should use a more specific condition.
 
 **** ~once-buffer~
+:PROPERTIES:
+:CUSTOM_ID: once-buffer
+:END:
 This condition will activate when switching buffers or after finding a file (the first time the current buffer changes after init).  It is the equivalent of using Doom's =doom-first-buffer-hook= or =on-first-buffer-hook= from [[https://github.com/ajgrf/on.el][on.el]] but is implemented using ~once~ rather than creating a new hook.
 
 #+begin_src emacs-lisp
@@ -663,6 +759,9 @@ This condition will activate when switching buffers or after finding a file (the
 #+end_src
 
 **** ~once-file~
+:PROPERTIES:
+:CUSTOM_ID: once-file
+:END:
 This condition will activate when finding the first file or opening dired.  It is the equivalent of using Doom's =doom-first-file-hook= or =on-first-file-hook= from [[https://github.com/ajgrf/on.el][on.el]] but is implemented using ~once~ rather than creating a new hook.
 
 #+begin_src emacs-lisp
@@ -673,19 +772,28 @@ This condition will activate when finding the first file or opening dired.  It i
 #+end_src
 
 **** ~once-writable~
+:PROPERTIES:
+:CUSTOM_ID: once-writable
+:END:
 This condition is similar to ~once-file~ but only activates in a writable buffer.
 
 **** ~once-evil-insert-and-writable~
+:PROPERTIES:
+:CUSTOM_ID: once-evil-insert-and-writable
+:END:
 This condition is similar to ~once-file~ but only activates in a writable buffer when entering an evil "insert" state.  Which states are considered insert states can be changed by customizing =once-evil-insert-states= (insert and emacs by default).
 
 ** ~once-require-incrementally~
+:PROPERTIES:
+:CUSTOM_ID: once-require-incrementally
+:END:
 Not yet implemented.
 
 *** Use-package =:once-require-incrementally= / =:require-incrementally=
+:PROPERTIES:
+:CUSTOM_ID: use-package-once-require-incrementally--require-incrementally
+:END:
 *** Setup.el  =:once-require-incrementally= / =:require-incrementally=
-
-# increase max depth
-# Local Variables:
-# toc-org-max-depth: 4
-# End:
-
+:PROPERTIES:
+:CUSTOM_ID: setupel--once-require-incrementally--require-incrementally
+:END:

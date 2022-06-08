@@ -1,0 +1,844 @@
+\input texinfo    @c -*- texinfo -*-
+@c %**start of header
+@setfilename once.info
+@settitle Once User Manual
+@documentencoding UTF-8
+@documentlanguage en
+@c %**end of header
+
+@dircategory Emacs
+@direntry
+* Once: (once).         Extra init.el deferred evaluation utilities.
+@end direntry
+
+@finalout
+@titlepage
+@title Once User Manual
+@author Fox Kiester
+@end titlepage
+
+@contents
+
+@ifnottex
+@node Top
+@top Once User Manual
+
+@quotation
+Once upon a time, there was a Princess who lived in a marzipan castle@dots{}
+
+@end quotation
+@end ifnottex
+
+@menu
+* About::
+* Feature Summary::
+* Examples::
+* Example Setup::
+* Provided Utilities::
+
+@detailmenu
+--- The Detailed Node Listing ---
+
+Example Setup
+
+* Use Package::
+* Setup.el: Setupel. 
+* Not Requiring at Load Time::
+
+Provided Utilities
+
+* @code{eval-after-load} Alternatives::
+* Once Only Deferred Evaluation::
+* @code{once-require-incrementally}::
+
+Once Only Deferred Evaluation
+
+* @code{once-x-call}::
+* @code{once}::
+* Condition System Details::
+* Condition Shorthand::
+* @code{once-x-require}::
+* @samp{require-after}, @samp{once-call}, etc.: @samp{require-after} @samp{once-call} etc. 
+* Pre-defined Conditions::
+
+@code{once-require-incrementally}
+
+* Use-package @samp{once-require-incrementally} / @samp{require-incrementally}::
+* Setup.el  @samp{once-require-incrementally} / @samp{require-incrementally}: Setupel @samp{once-require-incrementally} / @samp{require-incrementally}. 
+
+@end detailmenu
+@end menu
+
+@node About
+@chapter About
+
+@strong{NOTE: I do not recommend trying to use this package in your configuration until it is on MELPA unless you are willing to deal with breaking changes.}
+
+@samp{once.el} provides extra delayed evaluation utilities meant to be used in your init.el.  The utilities are primarily meant to simplify specifying conditions for when packages should load (and/or minor modes be activated).  It can also be used more generally as an @code{eval-after-load} replacement to run arbitrary code one time once some (simple or complex) condition is met.
+
+If you are familiar with Doom's @samp{:after-call} (transient hooks and advice), @samp{:defer-incrementally}, and hooks like @samp{doom-first-input-hook} and @samp{doom-first-file-hook}, this package provides a utilities to achieve the same thing.  One difference is that the primary utility @code{once} is more flexible/generic and can be used to replace @samp{:after-call}, Doom's "first" hooks, and more.  In combination with the other @uref{https://github.com/emacs-magus, emacs-magus} packages (especially @uref{https://github.com/emacs-magus/satch.el, satch.el}), once.el may be useful for anyone coming from Doom Emacs or some other distribution/starter kit who wants some of their helpful init.el configuration utilities without having to
+ copy the code.  For more information on replacing previously Doom-only utilities with standalone packages, see @uref{https://github.com/emacs-magus#replacing-unpackaged-doom-emacs-functionality, Replacing Doom}.
+
+@node Feature Summary
+@chapter Feature Summary
+
+@itemize
+@item
+@code{once} - Run code one time once some simple or complex condition (involving hooks, advice, package/file loads, and extra checks) is met
+@item
+@code{once-x-require} - Once "x" condition is met, require some package(s)
+@item
+@code{once-require-incrementally} - Space out requiring many packages during idle time (equivalent to Doom's @samp{:defer-incrementally})
+@item
+@code{once-eval-after-load} / @code{once-after-load} - An @code{eval-after-load} alternative (see below for explanation of the difference from @code{eval-after-load})
+@item
+@code{once-with-eval-after-load} / @code{once-with} - A @code{with-eval-after-load} alternative (see below for explanation of the difference from @code{with-eval-after-load})
+@item
+Optional integration with @uref{https://github.com/jwiegley/use-package, use-package} and @uref{https://github.com/phikal/setup.el, setup.el}
+@end itemize
+
+@node Examples
+@chapter Examples
+
+@code{once} is a swiss army knife for deferring packages/configuration.
+
+It can be used to run code the first time a hook runs:
+@lisp
+;; Enable `savehist-mode' once the first time `pre-command-hook' runs; during
+;; idle time, incrementally load custom then savehist; this is how Doom loads
+;; savehist at the time of writing
+(setq once-shorthand t)
+(once 'pre-command-hook #'savehist-mode)
+(once-require-incrementally savehist custom)
+@end lisp
+
+With @samp{use-package}, the mode to run can be inferred:
+@lisp
+(use-package savehist
+  :require-incrementally custom
+  :once 'pre-command-hook)
+;; OR for a more meaningful name
+(require 'once-conditions)
+(use-package savehist
+  :defer-incrementally custom
+  :once once-input)
+@end lisp
+
+
+@code{once} can be used to run code the first time a package loads:
+@lisp
+;; Enable `magit-todos-mode' after loading magit
+(use-package magit-todos
+  :once "magit")
+@end lisp
+
+
+@code{once} can be used to run code the first time a function runs:
+@lisp
+(use-package magit-todos
+  :once #'magit-status)
+@end lisp
+
+
+@code{once} can be used to run code the first time a hook @emph{or} function runs (like @samp{:after-call}):
+@lisp
+(use-package reveal
+  :once ((list 'on-switch-buffer-hook #'after-find-file)
+         (global-reveal-mode)))
+;; OR with the provided `once-buffer' condition
+(require 'once-conditions)
+(use-package reveal
+  :once (once-buffer (global-reveal-mode)))
+
+;; another example with winner; enable `winner-mode' on `once-buffer' condition;
+;; this is the equivalent of how Doom runs `winner-mode'
+(use-package winner
+  :once once-buffer)
+@end lisp
+
+
+@code{once} can also be used to do one-time package configuration:
+@lisp
+;; Install the fonts for all the icons if they have not been installed once the
+;; first GUI frame is created (don't bother installing in tty Emacs or a daemon
+;; with only tty frames)
+(use-package all-the-icons
+  :init
+  (defun all-the-icons-maybe-install-fonts ()
+    "Install fonts for all the icons if they have not been installed."
+    ;; workaround for this functionality not being included by default
+    ;; https://github.com/domtronn/all-the-icons.el/issues/120
+    (when (not (find-font (font-spec :name "all-the-icons")))
+      (all-the-icons-install-fonts t)))
+  :once (once-gui #'all-the-icons-maybe-install-fonts))
+@end lisp
+
+
+@code{once} also allows more complex, user-defined conditions:
+@lisp
+;; A more complex user-defined condition for evil users
+(defvar once-my-writable-non-prog-mode-condition
+  (list :initial-check (lambda ()
+                         (and (once-in-an-evil-insert-state-p)
+                              (not (or buffer-read-only
+                                       (derived-mode-p 'prog-mode)))))
+        ;; different check when the hook runs for illustrative purposes (even if
+        ;; though it isn't necessary since `evil-insert-state-entry-hook' runs
+        ;; after `evil-state' has already been changed)
+        :check (lambda ()
+                 (not (or buffer-read-only (derived-mode-p 'prog-mode))))
+        :hooks 'evil-insert-state-entry-hook))
+
+;; Set up fcitx once in insert state in a writable non-programming buffer
+(use-package fcitx
+  :once (my-writable-non-prog-mode-condition
+         (fcitx-aggressive-setup)))
+@end lisp
+
+@node Example Setup
+@chapter Example Setup
+
+@menu
+* Use Package::
+* Setup.el: Setupel. 
+* Not Requiring at Load Time::
+@end menu
+
+@node Use Package
+@section Use Package
+
+@lisp
+(eval-and-compile
+  (setq use-package-always-defer t))
+(eval-when-compile
+  (require 'use-package))
+
+(use-package once
+  :demand t
+  :init
+  (require 'once-conditions)
+  (setq once-shorthand t))
+
+(use-package once-use-package
+  :init
+  (eval-and-compile
+    ;; must set before loading
+    (setq once-use-package-aliases
+          '(":once-x-require" ":require-once"
+            ":once-require-incrementally" ":require-incrementally")))
+  (require 'once-use-package))
+@end lisp
+
+@node Setupel
+@section Setup.el
+
+@lisp
+(setup (:package once)
+  (:require once once-conditions)
+  (setq once-shorthand t))
+
+(setup (:package once-setup)
+  (eval-and-compile
+    ;; must set before loading
+    (setq once-setup-aliases
+          '(":once-x-require" ":require-once"
+            ":once-require-incrementally" ":require-incrementally")))
+  (:require once-setup))
+@end lisp
+
+@node Not Requiring at Load Time
+@section Not Requiring at Load Time
+
+Like use-package, @samp{once-use-package} and @samp{once-setup} are not required at load time if you are compiling your init.el.  This means you can require them at compile time only (e.g. @samp{(eval-when-compile (require 'once-use-package))}).  Note that if you then will use @samp{use-package} or @samp{setup} with any once.el keyword after loading your init.el file (e.g. evaluating a new @samp{use-package} statement in your init.el or in a scratch buffer), you will need to manually require @samp{once-use-package} or @samp{once-setup}.  If you do not understand what this means, it is recommended that you use the above configuration instead, which should work in all cases.  @samp{eval-when-compile} here will not save a significant amount of startup time in the first place.
+
+Also note that compiling your init file is not generally recommended, and if you are not aware of the caveats, you probably should not be compiling your init file.
+
+@node Provided Utilities
+@chapter Provided Utilities
+
+@menu
+* @code{eval-after-load} Alternatives::
+* Once Only Deferred Evaluation::
+* @code{once-require-incrementally}::
+@end menu
+
+@node @code{eval-after-load} Alternatives
+@section @code{eval-after-load} Alternatives
+
+Once provides @code{once-eval-after-load}, @code{once-with-eval-after-load} / @code{once-with} as @code{eval-after-load} alternatives.  The difference is that if a package has already loaded, the once.el versions will not needlessly add anything to @samp{after-load-alist}.  @code{eval-after-load} will always add to @samp{after-load-alist}.  See @uref{https://github.com/noctuid/general.el/issues/113, here} for some background information.  If the package/file has not yet loaded, the once.el versions will also remove from @samp{after-load-alist} after the file loads.
+
+The functional difference is that with @code{eval-after-load}, the given form will run every time the specified file is loaded.  With @code{once-eval-after-load}, the given form will only run once.  This difference usually should not matter, though I think the once.el version is usually what a user wants.  For example, if you were incrementally testing some @samp{use-package} @samp{:config} block, and added a malformed statement that caused an error, you would get that error every time you loaded the package (e.g. if you updated the package and the re-evaluated the file with the @code{provide} call, you would get the error again; the only simple way to fix this is to restart Emacs).
+
+If for whatever reason you do need the original behavior for some situation, just keep using @code{eval-after-load}.  These alternatives are mainly provided for consistency with @code{once} (run some code @emph{only once}) and because I already had to implement the underlying functionality for @code{once}.
+
+@code{-once-with-eval-after-load} is aliased to @code{once-with}.  If you have a lot of configuration for a particular package and want to split it up (especially in an org configuration if you want to split package configuration between multiple headings), you can use @code{use-package} for the initial setup and use @code{once-with} afterwards.
+
+@lisp
+(use-package foo)
+;; ...
+(once-with 'foo
+  (more-configuration))
+@end lisp
+
+@node Once Only Deferred Evaluation
+@section Once Only Deferred Evaluation
+
+@menu
+* @code{once-x-call}::
+* @code{once}::
+* Condition System Details::
+* Condition Shorthand::
+* @code{once-x-require}::
+* @samp{require-after}, @samp{once-call}, etc.: @samp{require-after} @samp{once-call} etc. 
+* Pre-defined Conditions::
+@end menu
+
+@node @code{once-x-call}
+@subsection @code{once-x-call}
+
+@code{once-x-call} is a more flexible way of deferring code/package loading.  If using just hooks, advice, or @code{eval-after-load} is not good enough, @code{once-x-call} can be used to create a condition to run the code that combines them along with various optional checks.
+
+The "once" has two meanings:
+@itemize
+@item
+Run something once some condition is met (hook run OR advised function run OR package load and optional extra checks)
+@item
+Run it only once (unlike normal hooks, normal advice, and @code{eval-after-load})
+@end itemize
+
+It is inspired by @code{evil-delay}, Doom's @samp{:after-call}, Doom's @code{defer-until!}, etc.
+
+The reason it is named @code{once-x-call} is to prevent confusion about the arguments.  The argument order is the condition followed by functions to call ("once x condition happens, call functions").  It is not named @code{once-call} is because this sounds similiar to @samp{:after-call} ("do something after this hook"), which is not the behavior/argument order provided.
+
+Here is an example of @code{once-x-call} being used in place of Doom's @samp{:after-call}:
+@lisp
+;; This is how Doom loads pyim at the time of writing; I believe Doom has
+;; switched to just using `pre-command-hook' for some packages, but the point is
+;; that `once-x-call' can use both hooks and advice (whichever runs first)
+(use-package pyim
+  :after-call after-find-file pre-command-hook
+  ;; ...
+  )
+
+;; with `once-x-call'
+(once-x-call (list :hooks pre-command-hook :before #'after-find-file)
+             (lambda () (require 'pyim)))
+
+;; or with `once-shorthand' enabled and :once
+(use-package pyim
+  :once ((list 'pre-command-hook #'after-find-file)
+         (require 'pyim)))
+
+;; or with `once-shorthand' enabled and :require-once
+;; quoting is required so that variables can be used for the condition(s)
+(use-package pyim
+  :require-once 'pre-command-hook #'after-find-file)
+@end lisp
+
+Unlike @code{satch-add-hook} and @code{satch-advice-add} (from @uref{https://github.com/emacs-magus/satch.el, satch.el}), the functions specified to run for @code{call-x-once} should take no arguments.
+
+@code{call-x-once} is more generic than @samp{:after-call} and the other mentioned utilities and can handle most conditions for which you want to load a package or run some code.  For more information on specifying conditions, see @ref{Condition System Details, , Condition System}.  For examples see below and the pre-defined conditions in @samp{once-conditions.el}.
+
+@node @code{once}
+@subsection @code{once}
+
+@code{once} is a convenience macro over @code{once-x-call} that can act as a drop-in replacement for sane invocations.  If the first argument is something that could be a function (symbols, functions, variables, and lambdas), all arguments are considered to be functions.  Otherwise, all arguments are considered to be body forms to run.
+
+@lisp
+(once-x-call condition #'foo 'bar some-func-in-var (lambda () (require 'baz)))
+;; same as
+(once condition #'foo 'bar some-func-in-var (lambda () (require 'baz)))
+
+;; body instead of function list
+(once condition
+  (foo)
+  (bar)
+  (funcall some-func-in-var)
+  (require 'baz))
+;; expands to
+(once-x-call
+ condition
+ (lambda ()
+   (foo)
+   (bar)
+   (funcall some-func-in-var)
+   (require 'baz)))
+@end lisp
+
+@enumerate
+@item
+@anchor{Use-package @samp{once}}Use-package @samp{:once}
+
+
+@samp{:once} is a use-package keyword that just takes a @code{once} argument list:
+@lisp
+(require 'once-conditions)
+
+(use-package which-key
+  :once (once-input #'which-key-mode))
+
+(use-package editorconfig
+  :once (once-buffer #'editorconfig-mode))
+
+(use-package magit-todos
+  :once ((list :packages 'magit) #'magit-todos-mode))
+;; or with `once-shorthand'
+(use-package magit-todos
+  :once ("magit" #'magit-todos-mode))
+@end lisp
+
+You can specify as many argument lists as you want to:
+@lisp
+(use-package foo
+  :once
+  ('bar-hook #'foo-mode)
+  ('baz-hook #'foo2-mode))
+@end lisp
+
+When @code{once-shorthand} is non-nil, you can use shorthand to infer a function (i.e. the minor mode to enable):
+@lisp
+;; enable `which-key-mode' on the first input
+(use-package which-key
+  :once 'pre-command-hook)
+;; or
+(require 'once-conditions)
+(use-package which-key
+  :once once-input)
+
+(use-package editorconfig
+  :once once-buffer)
+
+(use-package magit-todos
+  :once "magit")
+@end lisp
+
+Note that any list (other than @samp{(quote some-hook)} or @samp{(function some-function)}) will considered to be an argument list.  You cannot do this:
+@lisp
+;; WRONG!
+(use-package editorconfig
+  :once (some-function-that-generates-a-condition-list))
+
+
+;; Ok
+(use-package editorconfig
+  :once ((some-function-that-generates-a-condition-list) #'editorconfig-mode))
+
+;; Ok
+(use-package editorconfig
+  ;; argument list with inferred function (`editorconfig-mode')
+  :once ((some-function-that-generates-a-condition-list)))
+@end lisp
+
+@item
+@anchor{Setupel @samp{once}}Setup.el @samp{:once}
+
+
+@samp{:once} is a setup.el keyword that just takes a @code{once} argument list:
+@lisp
+(require 'once-conditions)
+
+(setup (:package which-key)
+  (:once once-input #'which-key-mode))
+
+(setup (:package editorconfig)
+  (:once once-buffer #'editorconfig-mode))
+
+(setup (:package magit-todos)
+  (:once (list :packages 'magit) #'magit-todos-mode))
+;; or with `once-shorthand'
+(setup (:package magit-todos)
+  (:once "magit" #'magit-todos-mode))
+@end lisp
+
+It is not a repeating keyword.  All arguments after the first are considered to be functions or forms to run once the condition is met (exactly like @code{once}).  If you need to do something based on a different condition, specify @samp{:once} again:
+@lisp
+(use-package (:package foo)
+  (:once condition1 #'func1 #'func2)
+  (:once condition2 #'func3 #'func4))
+@end lisp
+
+The benefit over just using @code{(once ...)} is that when @code{once-shorthand} is non-nil, you can use shorthand to infer a function (i.e. the minor mode to enable):
+@lisp
+;; enable `which-key-mode' on the first input
+(setup (:package which-key)
+  (:once 'pre-command-hook))
+;; or
+(require 'once-conditions)
+(setup (:package which-key)
+  (:once once-input))
+
+(setup (:package editorconfig)
+  (:once once-buffer))
+
+(setup (:package magit-todos)
+  (:once "magit"))
+@end lisp
+@end enumerate
+
+@node Condition System Details
+@subsection Condition System Details
+
+At least one of @samp{:hooks}, @samp{:packages}, and the advice keywords should be specified.  When more than one is specified, any of them can trigger the condition (the behavior is OR not AND).  The check keywords are optional.
+
+@enumerate
+@item
+@anchor{@samp{hooks}}@samp{:hooks}
+
+
+@samp{:hooks} should be 1+ hooks that can trigger the functions to run.
+
+@lisp
+;; call `cl-lib-highlight-initialize' the first time `emacs-lisp-mode-hook' runs
+(once (list :hooks 'emacs-lisp-mode-hook) #'cl-lib-highlight-initialize)
+;; or with `once-shorthand' enabled
+(once 'emacs-lisp-mode-hook #'cl-lib-highlight-initialize)
+@end lisp
+
+@item
+@anchor{@samp{packages}}@samp{:packages}
+
+
+@samp{:packages} should be 1+ packages that can trigger the functions to run when loaded.
+
+@lisp
+;; load yasnippet-snippets as soon as yasnippet is loaded
+(once (list :packages 'yasnippet)
+  (require 'yasnippet-snippets))
+;; or if `once-shorthand' is enabled
+(once "yasnippet"
+  (require 'yasnippet-snippets))
+@end lisp
+
+@item
+@anchor{advice}advice
+
+
+Any WHERE keyword (e.g. @samp{:before}) can be used to specify advice:
+
+@lisp
+;; enable `global-hardhat-mode' after finding a file
+(once (list :before #'after-find-file) #'global-hardhat-mode)
+;; or if `once-shorthand' is enabled
+(once #'after-find-file #'global-hardhat-mode)
+@end lisp
+
+@item
+@anchor{@samp{check}}@samp{:check}
+
+
+@samp{:check} can be specified as a function to run to determine whether to run now.  It will be passed no arguments.
+
+When a check is given and it returns non-nil, the code will be run immediately.  Otherwise, it will be delayed.  Then later when a hook runs, package loads, or advised symbol is called, the check will run again to determine whether to run the delayed code now or continue to wait.
+
+@lisp
+;; run `unicode-fonts-setup' for the first GUI frame
+(once (list :check #'display-graphic-p
+            :hooks 'server-after-make-frame-hook)
+  (unicode-fonts-setup))
+@end lisp
+
+If no check is given, the code to run will always be delayed.  The only exception is if you use @samp{:packages} and a package has already been loaded.  If no @samp{:check} is given and any specified package has loaded, the code will run immediately.  On the other hand, if @samp{:check} is specified and fails initially, the code will always be delayed even if one of the packages has already loaded.  In that case, some other method (a different package load or a hook or advice) will have to trigger later when the @samp{:check} returns non-nil for the code to run.
+
+@item
+@anchor{@samp{initial-check}}@samp{:initial-check}
+
+
+@samp{:initial-check} is like @samp{:check} but happens only at the beginning to determine whether to initially delay or run the code.  When both are specified, @samp{:check} only applies later.  If you always want to delay initially and but have a check later, you can use @samp{:check #'some-check :initial-check (lambda () nil)}.
+
+@lisp
+;; this is not the most practical example but should illustrate that different
+;; checks can potentially make sense
+(once (list :initial-check (lambda () after-init-time)
+            :hooks 'after-init-hook)
+  (column-number-mode)
+  (size-indication-mode))
+;; or
+(require 'once-conditions)
+(once-init
+  (column-number-mode)
+  (size-indication-mode))
+@end lisp
+
+@item
+@anchor{Local Checks}Local Checks
+
+
+Having checks for individual triggers is also possible:
+@lisp
+(list :hooks (list 'some-hook #'some-check) 'no-check-hook
+      :before (list #'some-fun #'another-check) #'no-check-fun
+      :packages (list 'evil #'yet-another-check) 'no-check-package)
+@end lisp
+
+Unlike @samp{:check} and @samp{:initial-check}, local checks are passed the arguments the hook (in the case of @code{run-hook-with-args}) or advised symbol was run with.  Packages can take a local check, but it won't be passed any arguments and may not be useful.
+
+Local checks allow mimicking the behavior of @code{evil-delay} and Doom's @code{defer-until!}.
+@lisp
+(once (list :hooks (list 'after-load-functions
+                         (lambda (&rest _)
+                           (boundp 'evil-normal-state-map))))
+  (define-key evil-normal-state-map ...))
+;; better to just do this; `once' is not needed
+(once-with 'evil
+  (define-key evil-normal-state-map ...))
+@end lisp
+
+For use cases, search how @code{evil-delay} and @code{defer-until!} are used (e.g. in Doom and on github in general).  Hooks you might use would be @samp{after-load-functions} and @samp{post-command-hook}.  You probably will not normally need this functionality, but it is there if you do need it.
+@end enumerate
+
+@node Condition Shorthand
+@subsection Condition Shorthand
+
+It is generally recommended that you store more complex conditions in a reusable, named variable using the full condition syntax like @samp{once-conditions.el} does.  However, it is possible to use shorthand for more simple cases.  This means you do not need to explicitly specify @samp{:hooks}, @samp{:before} (and other advice keywords), or  @samp{:packages}.
+
+The type will be inferred as follows:
+@itemize
+@item
+Packages must be specified as strings (files name not feature name)
+@item
+Hooks must be symbols ending in @samp{-hook} or @samp{-functions}
+@item
+All other symbols will be considered to be functions to advise @samp{:before}
+@end itemize
+
+Any keyword arguments (@samp{:check} and @samp{:initial-check}) must be specified last.
+
+To enable shorthand, set @samp{once-shorthand} to non-nil.  By setting this, you confirm that you understand how the inference works (e.g. you should not be surprised if you try @code{(once '(evil ...) ...)} and it does not work).
+
+@lisp
+(setq once-shorthand t)
+(once (list #'foo 'bar-mode-hook "some-file") ...)
+(once "evil" ...)
+@end lisp
+
+@node @code{once-x-require}
+@subsection @code{once-x-require}
+
+@code{once-x-require} is a more limited version of @code{once} that will require a package once some condition "x" is met.  It is a more generic version of Doom's @samp{:after-call}:
+
+@lisp
+;; require forge after magit loads
+(once-x-require (list :packages 'magit) 'forge)
+@end lisp
+
+When @code{once-shorthand} is enabled, you can also use shorthand:
+@lisp
+(once-x-require "magit" 'forge)
+@end lisp
+
+Any number of features to require can be specified:
+@lisp
+(once-x-require "magit" 'forge 'magit-todos ...)
+@end lisp
+
+@enumerate
+@item
+@anchor{Use-package @samp{once-x-require} / @samp{require-once}}Use-package @samp{:once-x-require} / @samp{:require-once}
+
+
+It is recommend you alias @samp{:once-x-require} to @samp{:require-once} using @samp{once-use-package-aliases}.
+
+The keyword takes any number of @code{once-x-require} argument lists:
+@lisp
+(use-package forge
+  :require-once ((list :packages 'magit) 'forge))
+;; or
+(use-package forge
+  :require-once ((:after #'magit-status) 'forge))
+
+;; with `once-shorthand' enabled
+(use-package forge
+  :require-once ("magit" 'forge))
+;; or
+(use-package forge
+  ;; :before advice unlike above (though order is not really important in this
+  ;; case)
+  :require-once (#'magit-status 'forge))
+@end lisp
+
+The benefit over using @code{once-x-require} directly is that the package to require can be inferred:
+@lisp
+(use-package forge
+  :require-once ("magit"))
+;; or just
+(use-package forge
+  :require-once "magit")
+@end lisp
+
+The same caveat as for @samp{:once} applies.  All lists (except a quoted symbol or function) are considered argument lists, so this is invalid:
+
+You can use @samp{nil} in place of the package name if you want to additionally require some other extension:
+@lisp
+(use-package foo
+  :require-once condition
+  :require-once (condition 'foo-extension))
+;; or just
+(use-package foo
+  :require-once (condition nil 'foo-extension ...))
+@end lisp
+
+@item
+@anchor{Setupel @samp{once-x-require} / @samp{require-once}}Setup.el @samp{:once-x-require} / @samp{:require-once}
+
+
+It is recommend you alias @samp{:once-x-require} to @samp{:require-once} using @samp{once-setup-aliases}.
+
+The keyword takes any number of @code{once-x-require} argument lists:
+@lisp
+(setup (:package forge)
+  (:require-once (list :packages 'magit) 'forge))
+;; or
+(setup (:package forge)
+  (:require-once (:after #'magit-status) 'forge))
+
+;; with `once-shorthand' enabled
+(setup (:package forge)
+  (:require-once "magit" 'forge))
+;; or
+(setup (:package forge)
+  ;; :before advice unlike above (though order is not really important in this
+  ;; case)
+  (:require-once #'magit-status 'forge))
+@end lisp
+
+The benefit over using @code{once-x-require} directly is that the package to require can be inferred:
+@lisp
+(setup (:package forge)
+  (:require-once "magit"))
+@end lisp
+
+You can use @samp{nil} in place of the package name if you want to additionally require some other extension:
+@lisp
+(setup (:package foo)
+  (:require-once condition)
+  (:require-once condition 'foo-extension))
+;; or just
+(setup (:package foo)
+  (:require-once condition nil 'foo-extension ...))
+@end lisp
+
+Note that the keyword is not repeatable.  If you want to specify a different condition, you will have to use a different @samp{:require-once}:
+@lisp
+(setup (:package foo)
+  (:require-once condition 'foo 'foo-extension ...)
+  (:require-once condition2 'foo-extension2 ...))
+@end lisp
+@end enumerate
+
+@node @samp{require-after} @samp{once-call} etc
+@subsection @samp{:require-after}, @samp{:once-call}, etc.
+
+I have not added these but am considering them.  @samp{:require-after} would be like @samp{:require-once} but only support packages.  The difference from @samp{:after <package> :demand t} would be that @samp{:init} would still run immediately, and all it would do would be to require the package.  It probably also would not support a complex condition system.
+
+@lisp
+;; instead of this
+(use-package tree-sitter-langs
+  :after tree-sitter
+  :demand t)
+; this
+(use-package tree-sitter-langs
+  :require-after tree-sitter)
+@end lisp
+
+Whether this justifies a new keyword just to avoid the need to have quotes, I'm not sure.
+
+@samp{:once-call} would just be like Doom's @samp{:after-call}.  It would disallow packages and only accept hooks/functions (and no variables), which would allow not needing to quote them.  Again, I'm not sure this is worth a new keyword that is far more limited than the others (only supports hooks/functions and does not support variables for conditions).
+
+@node Pre-defined Conditions
+@subsection Pre-defined Conditions
+
+For some predefined @code{once} conditions, @code{(require 'once-conditions)}.  All conditions come with a corresponding macro and variable of the same name, e.g. @code{once-gui}.
+
+@enumerate
+@item
+@anchor{@code{once-gui} and @code{once-tty}}@code{once-gui} and @code{once-tty}
+
+
+@code{once-gui} and @code{once-tty} can be used to run some code once once the first graphical or terminal frame is created (now if the current frame already is).  Here is an example use case:
+@lisp
+(require 'once-conditions)
+
+(use-package clipetty
+  :init
+  ;; only need to load if create a terminal frame
+  ;; `global-clipetty-mode' will not cause issues if enabled for a server with
+  ;; both graphical and terminal frames
+  (once-tty (global-clipetty-mode)))
+
+;; or
+(use-package clipetty
+  :once (once-tty #'global-clipetty-mode))
+@end lisp
+
+Similarly, some packages are only needed or only work in graphical frames, which is the use case of @code{once-gui}.
+
+@item
+@anchor{@code{once-init}}@code{once-init}
+
+
+This basic condition will run after Emacs initialization has finished (now if it already has).
+
+@lisp
+(once-init
+  (column-number-mode)
+  (size-indication-mode))
+@end lisp
+
+Most of the time, you should use a more specific condition.
+
+@item
+@anchor{@code{once-buffer}}@code{once-buffer}
+
+
+This condition will activate when switching buffers or after finding a file (the first time the current buffer changes after init).  It is the equivalent of using Doom's @samp{doom-first-buffer-hook} or @samp{on-first-buffer-hook} from @uref{https://github.com/ajgrf/on.el, on.el} but is implemented using @code{once} rather than creating a new hook.
+
+@lisp
+(once-buffer (winner-mode))
+;; or
+(use-package winner
+  :once once-buffer)
+@end lisp
+
+@item
+@anchor{@code{once-file}}@code{once-file}
+
+
+This condition will activate when finding the first file or opening dired.  It is the equivalent of using Doom's @samp{doom-first-file-hook} or @samp{on-first-file-hook} from @uref{https://github.com/ajgrf/on.el, on.el} but is implemented using @code{once} rather than creating a new hook.
+
+@lisp
+(once-file (recentf-mode))
+;; or
+(use-package recentf
+  :once once-file)
+@end lisp
+
+@item
+@anchor{@code{once-writable}}@code{once-writable}
+
+
+This condition is similar to @code{once-file} but only activates in a writable buffer.
+
+@item
+@anchor{@code{once-evil-insert-and-writable}}@code{once-evil-insert-and-writable}
+
+
+This condition is similar to @code{once-file} but only activates in a writable buffer when entering an evil "insert" state.  Which states are considered insert states can be changed by customizing @samp{once-evil-insert-states} (insert and emacs by default).
+@end enumerate
+
+@node @code{once-require-incrementally}
+@section @code{once-require-incrementally}
+
+Not yet implemented.
+
+@menu
+* Use-package @samp{once-require-incrementally} / @samp{require-incrementally}::
+* Setup.el  @samp{once-require-incrementally} / @samp{require-incrementally}: Setupel @samp{once-require-incrementally} / @samp{require-incrementally}. 
+@end menu
+
+@node Use-package @samp{once-require-incrementally} / @samp{require-incrementally}
+@subsection Use-package @samp{:once-require-incrementally} / @samp{:require-incrementally}
+
+@node Setupel @samp{once-require-incrementally} / @samp{require-incrementally}
+@subsection Setup.el  @samp{:once-require-incrementally} / @samp{:require-incrementally}
+
+@bye

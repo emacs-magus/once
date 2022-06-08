@@ -25,3 +25,17 @@ lint:
 .PHONY: clean
 clean:
 	rm -f -- *.elc **/*.elc *-autoloads.el **/*-autoloads.el *\~ **/*\~
+
+.PHONY: texi
+texi:
+	@# put index version of readme in texi folder
+	@mkdir -p texi
+	@git show :README.org > once.org
+	@rm -f once.texi
+	@# NOTE a pre-commit hook will fail if wrap this line
+	./makem/makem.sh -vv --emacs "$(EMACS)" \
+		--sandbox="$(SANDBOX_DIR)" batch -- once.org -l ox-extra \
+			 -f org-texinfo-export-to-texinfo
+	@# add missing final newline
+	@echo >> once.texi
+	@rm -f once.org

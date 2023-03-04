@@ -160,6 +160,7 @@
     (test-once-dummy-fn)
     (expect test-once-counter :to-be 1)
     (expect (not (test-once-advised-p #'test-once-dummy-fn))))
+
   (it "should run code when a file/feature loads"
     (once-x-call (list :packages 'test-once-dummy)
       (lambda () (cl-incf test-once-counter)))
@@ -177,6 +178,14 @@
     (require 'test-once-dummy)
     (expect test-once-counter :to-be 1)
     (expect after-load-alist :to-be nil))
+
+  (it "should support :files as an alias for :packages"
+    (once-x-call (list :files 'test-once-dummy)
+      (lambda () (cl-incf test-once-counter)))
+    (expect test-once-counter :to-be 0)
+    (expect after-load-alist :not :to-be nil)
+    (require 'test-once-dummy)
+    (expect test-once-counter :to-be 1))
 
   (it "should run code immediately if a file/feature already loaded"
     (require 'test-once-dummy)

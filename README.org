@@ -443,7 +443,7 @@ The benefit over just using ~(once ...)~ is that when ~once-shorthand~ is non-ni
 :PROPERTIES:
 :CUSTOM_ID: condition-system-details
 :END:
-At least one of =:hooks=, =:packages=, and the advice keywords should be specified.  When more than one is specified, any of them can trigger the condition (the behavior is OR not AND).  The check keywords are optional.
+At least one of =:hooks=, =:packages= (or =:files=), or the advice keywords should be specified.  When more than one is specified, any of them can trigger the condition (the behavior is OR not AND).  The check keywords are optional.
 
 **** =:hooks=
 :PROPERTIES:
@@ -462,7 +462,7 @@ At least one of =:hooks=, =:packages=, and the advice keywords should be specifi
 :PROPERTIES:
 :CUSTOM_ID: packages
 :END:
-=:packages= should be 1+ packages that can trigger the functions to run when loaded.
+=:packages= (or =:files=, which is an alias) should be 1+ files or features (i.e. either a string or symbol just like the FILE argument to ~eval-after-load~) that can trigger the functions to run when loaded.
 
 #+begin_src emacs-lisp
 ;; load yasnippet-snippets as soon as yasnippet is loaded
@@ -556,7 +556,7 @@ For use cases, search how ~evil-delay~ and ~defer-until!~ are used (e.g. in Doom
 It is generally recommended that you store more complex conditions in a reusable, named variable using the full condition syntax like =once-conditions.el= does.  However, it is possible to use shorthand for more simple cases.  This means you do not need to explicitly specify =:hooks=, =:before= (and other advice keywords), or  =:packages=.
 
 The type will be inferred as follows:
-- Packages must be specified as strings (files name not feature name)
+- Packages must be specified as strings (file name not feature name)
 - Hooks must be symbols ending in =-hook= or =-functions=
 - All other symbols will be considered to be functions to advise =:before=
 

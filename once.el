@@ -60,10 +60,11 @@
 (defcustom once-shorthand nil
   "Whether to allow shorthand for `once-x-call' conditions.
 When shorthand is enabled, you do not need to specify :hooks, :before (and other
-advice keywords), or :packages.  Instead, symbols that end in \"-hook\" or
-\"-functions\" will be inferred to be hooks.  Other symbols will be inferred to
-be functions to advise :before.  Strings will be inferred to be packages.  Other
-keywords must come at the end (:check and :initial-check).
+advice keywords), or :packages/:files.  Instead, symbols that end in \"-hook\"
+or \"-functions\" will be inferred to be hooks.  Other symbols will be inferred
+to be functions to advise :before.  Strings will be inferred to be
+files.  Other keywords must come at the end (:check and
+:initial-check).
 
 This will also allow using a single symbol or string as the condition.
 
@@ -73,8 +74,8 @@ is the same as
 \(once (list :before #'foo) ...)
 
 By setting this variable, you confirm that you understand how the inference
-works and what its limitations are (e.g. you cannot specify a package as a
-symbol)."
+works and what its limitations are (e.g. you cannot use a feature symbol but
+must use a string for a file instead: \"magit\" not 'magit)."
   :type 'boolean)
 
 ;; * Helpers
@@ -294,7 +295,7 @@ arguments passed to an advised function)."
 Remove an equivalent function from these to ensure it only runs once:
 Hooks - %s
 Functions - %s
-Packages - %s"
+Files/Features - %s"
               (or hook-names "None")
               (or advised-symbol-names "None")
               (or package-names "None")))
@@ -361,7 +362,7 @@ ADVISE-SYMBOLS should be a list with each item in the form:
 e.g.
 \(:before \\='some-symbol (lambda () (foo-check)))
 
-PACKAGES should be a list with each item in the form:
+FILES should be a list with each item in the form:
 \(<regexp or feature symbol> <local-check function or nil>)
 e.g.
 \(\\='some-package (lambda () (foo-check)))"
@@ -474,8 +475,9 @@ If it is already a list, just return ITEM."
                        (cl-case current-key
                          (:hooks (push (once--condition-item-to-list item)
                                        hooks))
-                         (:packages (push (once--condition-item-to-list item)
-                                          packages))
+                         ((:packages :files)
+                          (push (once--condition-item-to-list item)
+                                packages))
                          (:check (setq check item))
                          (:initial-check (setq initial-check item))
                          (t
@@ -526,24 +528,26 @@ Here are the available CONDITION keywords:
   to hooks, and :check will only be used when the advised function or hook
   triggers.
 - :hooks - list of hooks that can trigger running FUNCTIONS
-- :packages - list of packages (i.e. valid arguments to `eval-after-load') that
-  can trigger running FUNCTIONS on load.  Unlike :after or Doom's after!,
-  `once-x-call' does not support any sort of complex \"and\"/\"or\" rules
-  for packages.  I have yet to encounter a situation where these are actually
-  necessary.  Any of the specified packages loading can trigger FUNCTIONS.
+- :packages or :files - list of files/features (i.e. valid arguments to
+  `eval-after-load') that can trigger running FUNCTIONS on load.  Unlike :after
+  or Doom's after!, `once-x-call' does not support any sort of complex
+  \"and\"/\"or\" rules for packages.  I have yet to encounter a situation where
+  these are actually necessary.  Any of the specified files/packages loading can
+  trigger FUNCTIONS.
 - any advice WHERE position (e.g. :before or :after) - list of functions to
   advise that can trigger running FUNCTIONS
 
-You must specify at least one of :hooks, :packages, or the advice keywords.
+You must specify at least one of :hooks, :packages/:files, :variables, or the
+advice keywords.
 
 If you want to potentially run FUNCTIONS immediately, you must specify
 :initial-check and/or :check.  The only exception is if you specify :packages.
-If there are no checks and any of the specified packages has loaded, FUNCTIONS
-will be run immediately.  On the other hand, if :check is specified and fails
-initially, the code will always be delayed even if one of the packages has
-already loaded.  In that case, some other method (a different package load or a
-hook or advice) will have to trigger later when the :check returns non-nil for
-FUNCTIONS to run.
+If there are no checks and any of the specified files/features has loaded,
+FUNCTIONS will be run immediately.  On the other hand, if :check is specified
+and fails initially, the code will always be delayed even if one of the
+files/features has already loaded.  In that case, some other method (a different
+package load or a hook or advice) will have to trigger later when the :check
+returns non-nil for FUNCTIONS to run.
 
 If you specify :check but do not want FUNCTIONS to run immediately if the check
 passes, you should specify :initial-check as (lambda () nil).
@@ -621,5 +625,5 @@ See `once-x-call' for more information, including how to specify CONDITION."
     (once-x-call condition require-fun)))
 
 (provide 'once)
-;; LocalWords: arg satch el uninterned init
+;; LocalWords: arg satch el uninterned init magit
 ;;; once.el ends here

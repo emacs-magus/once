@@ -103,7 +103,7 @@ With =use-package=, the mode to run can be inferred:
 ;; OR for a more meaningful name
 (require 'once-conditions)
 (use-package savehist
-  :defer-incrementally custom
+  :require-incrementally custom
   :once once-input)
 #+end_src
 
@@ -248,7 +248,7 @@ The functional difference is that with ~eval-after-load~, the given form will ru
 
 If for whatever reason you do need the original behavior for some situation, just keep using ~eval-after-load~.  These alternatives are mainly provided for consistency with ~once~ (run some code /only once/) and because I already had to implement the underlying functionality for ~once~.
 
-~-once-with-eval-after-load~ is aliased to ~once-with~.  If you have a lot of configuration for a particular package and want to split it up (especially in an org configuration if you want to split package configuration between multiple headings), you can use ~use-package~ for the initial setup and use ~once-with~ afterwards.
+~once-with-eval-after-load~ is aliased to ~once-with~.  If you have a lot of configuration for a particular package and want to split it up (especially in an org configuration if you want to split package configuration between multiple headings), you can use ~use-package~ for the initial setup and use ~once-with~ afterwards.
 
 #+begin_src emacs-lisp
 (use-package foo)

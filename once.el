@@ -69,13 +69,13 @@ files.  Other keywords must come at the end (:check and
 This will also allow using a single symbol or string as the condition.
 
 For example:
-\(once #'foo ...)
+\(once #\\='foo ...)
 is the same as
-\(once (list :before #'foo) ...)
+\(once (list :before #\\='foo) ...)
 
 By setting this variable, you confirm that you understand how the inference
 works and what its limitations are (e.g. you cannot use a feature symbol but
-must use a string for a file instead: \"magit\" not 'magit)."
+must use a string for a file instead: \"magit\" not \\='magit)."
   :type 'boolean)
 
 ;; * Helpers
@@ -575,7 +575,7 @@ would never actually use this condition):
                    :packages \\='evil
                    :initial-check (lambda () (and (bar) (foo)))
                    :check (lambda () (foo)))
-             #'some-mode)
+             #\\='some-mode)
 
 If you set `once-shorthand' to non-nil, you can also use a more brief
 condition syntax.  See its documentation for more information.
@@ -592,7 +592,7 @@ For real examples, see the README or specific once \"x\" utilities like
   "When CONDITION is met for the first time, execute BODY.
 If the first item is BODY is anything that could be a function, it will be
 considered to be a list of functions:
-\(once condition #'foo \\='bar some-func-in-var (lambda ()))
+\(once condition #\\='foo \\='bar some-func-in-var (lambda ()))
 
 Otherwise, if the first item is in the form (fun arg1), it will be considered to
 be a function body:

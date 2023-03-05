@@ -43,6 +43,8 @@
 
 (defvar test-once-run-now nil)
 
+(defvar test-once-watched nil)
+
 (defun test-once-dummy-fn (&rest _)
   "Dummy function to advise.")
 
@@ -50,9 +52,6 @@
 (defun test-once-advised-p (fun)
   "Return whether FUN has advice."
   (advice--p (advice--symbol-function fun)))
-(advice--p
- (advice--symbol-function
-  #'test-once-dummy-fn))
 
 ;; * once-eval-after-load
 (describe "eval-after-load"
@@ -121,7 +120,8 @@
     (setq test-once-counter 0
           test-once-hook nil
           test-once-run-now nil
-          after-load-alist nil)
+          after-load-alist nil
+          test-once-watched nil)
     (when (featurep 'test-once-dummy)
       (unload-feature 'test-once-dummy)))
 
@@ -194,64 +194,132 @@
     (expect test-once-counter :to-be 1)
     (expect after-load-alist :to-be nil))
 
+  (it "should run code when a variable is set"
+    (once-x-call (list :variables 'test-once-watched)
+      (lambda () (cl-incf test-once-counter)))
+    (expect test-once-counter :to-be 0)
+    (expect (get-variable-watchers 'test-once-watched))
+    (setq test-once-watched t)
+    (expect test-once-counter :to-be 1)
+    (expect (not (get-variable-watchers 'test-once-watched))))
+
+  (it "should run code only the first time a variable is set"
+    (once-x-call (list :variables 'test-once-watched)
+      (lambda () (cl-incf test-once-counter)))
+    (expect test-once-counter :to-be 0)
+    (expect (get-variable-watchers 'test-once-watched))
+    (setq test-once-watched t)
+    (setq test-once-watched 2)
+    (expect test-once-counter :to-be 1)
+    (expect (not (get-variable-watchers 'test-once-watched))))
+
+  (it "should support :vars as an alias for :variables"
+    (once-x-call (list :vars 'test-once-watched)
+      (lambda () (cl-incf test-once-counter)))
+    (expect test-once-counter :to-be 0)
+    (expect (get-variable-watchers 'test-once-watched))
+    (setq test-once-watched t)
+    (expect test-once-counter :to-be 1)
+    (expect (not (get-variable-watchers 'test-once-watched))))
+
   (it "should support a combination of all when the hook runs first"
     (once-x-call (list :hooks 'test-once-hook
                        :before #'test-once-dummy-fn
-                       :packages 'test-once-dummy)
+                       :packages 'test-once-dummy
+                       :variables 'test-once-watched)
       (lambda () (cl-incf test-once-counter)))
     (expect test-once-counter :to-be 0)
     (expect test-once-hook :not :to-be nil)
     (expect (test-once-advised-p #'test-once-dummy-fn))
     (expect after-load-alist :not :to-be nil)
+    (expect (get-variable-watchers 'test-once-watched))
 
     (run-hooks 'test-once-hook)
     (expect test-once-counter :to-be 1)
+
     (expect test-once-hook :to-be nil)
     (expect (not (test-once-advised-p #'test-once-dummy-fn)))
     (expect after-load-alist :to-be nil)
+    (expect (not (get-variable-watchers 'test-once-watched)))
 
     (test-once-dummy-fn)
     (require 'test-once-dummy)
+    (setq test-once-watched t)
     (expect test-once-counter :to-be 1))
 
   (it "should support a combination of all when the function runs first"
     (once-x-call (list :hooks 'test-once-hook
                        :before #'test-once-dummy-fn
-                       :packages 'test-once-dummy)
+                       :packages 'test-once-dummy
+                       :variables 'test-once-watched)
       (lambda () (cl-incf test-once-counter)))
     (expect test-once-counter :to-be 0)
     (expect test-once-hook :not :to-be nil)
     (expect (test-once-advised-p #'test-once-dummy-fn))
     (expect after-load-alist :not :to-be nil)
+    (expect (get-variable-watchers 'test-once-watched))
 
     (test-once-dummy-fn)
     (expect test-once-counter :to-be 1)
+
     (expect test-once-hook :to-be nil)
     (expect (not (test-once-advised-p #'test-once-dummy-fn)))
     (expect after-load-alist :to-be nil)
+    (expect (not (get-variable-watchers 'test-once-watched)))
 
     (run-hooks 'test-once-hook)
     (require 'test-once-dummy)
+    (setq test-once-watched t)
     (expect test-once-counter :to-be 1))
 
   (it "should support a combination of all when the file/feature loads first"
     (once-x-call (list :hooks 'test-once-hook
                        :before #'test-once-dummy-fn
-                       :packages 'test-once-dummy)
+                       :packages 'test-once-dummy
+                       :variables 'test-once-watched)
       (lambda () (cl-incf test-once-counter)))
     (expect test-once-counter :to-be 0)
     (expect test-once-hook :not :to-be nil)
     (expect (test-once-advised-p #'test-once-dummy-fn))
     (expect after-load-alist :not :to-be nil)
+    (expect (get-variable-watchers 'test-once-watched))
 
     (require 'test-once-dummy)
     (expect test-once-counter :to-be 1)
+
     (expect test-once-hook :to-be nil)
     (expect (not (test-once-advised-p #'test-once-dummy-fn)))
     (expect after-load-alist :to-be nil)
+    (expect (not (get-variable-watchers 'test-once-watched)))
 
     (run-hooks 'test-once-hook)
     (test-once-dummy-fn)
+    (setq test-once-watched t)
+    (expect test-once-counter :to-be 1))
+
+  (it "should support a combination of all when the variable changes first"
+    (once-x-call (list :hooks 'test-once-hook
+                       :before #'test-once-dummy-fn
+                       :packages 'test-once-dummy
+                       :variables 'test-once-watched)
+      (lambda () (cl-incf test-once-counter)))
+    (expect test-once-counter :to-be 0)
+    (expect test-once-hook :not :to-be nil)
+    (expect (test-once-advised-p #'test-once-dummy-fn))
+    (expect after-load-alist :not :to-be nil)
+    (expect (get-variable-watchers 'test-once-watched))
+
+    (setq test-once-watched t)
+    (expect test-once-counter :to-be 1)
+
+    (expect test-once-hook :to-be nil)
+    (expect (not (test-once-advised-p #'test-once-dummy-fn)))
+    (expect after-load-alist :to-be nil)
+    (expect (not (get-variable-watchers 'test-once-watched)))
+
+    (run-hooks 'test-once-hook)
+    (test-once-dummy-fn)
+    (require 'test-once-dummy)
     (expect test-once-counter :to-be 1))
 
   (it "should support a :check that is initially false"
@@ -452,6 +520,23 @@
     (expect test-once-counter :to-be 1)
     (expect after-load-alist :to-be nil))
 
+  (it "should support specific checks for variables"
+    (once-x-call (list :variables (list 'test-once-watched
+                                        (lambda (_symbol newval operation _where)
+                                          (and (eq operation 'set)
+                                               (eq newval t)))))
+      (lambda () (cl-incf test-once-counter)))
+    (expect test-once-counter :to-be 0)
+    (expect (get-variable-watchers 'test-once-watched))
+
+    (setq test-once-watched 1)
+    (expect test-once-counter :to-be 0)
+    (expect (get-variable-watchers 'test-once-watched))
+
+    (setq test-once-watched t)
+    (expect test-once-counter :to-be 1)
+    (expect (not (get-variable-watchers 'test-once-watched))))
+
   (it "should support :check and a specific check for a hooks run with args"
     (once-x-call (list :hooks (list 'test-once-hook
                                     (lambda (arg) arg))
@@ -517,6 +602,29 @@
     (require 'test-once-dummy)
     (expect test-once-counter :to-be 1)
     (expect after-load-alist :to-be nil))
+
+  (it "should support :check and a specific check for variables"
+    (once-x-call (list :variables (list 'test-once-watched
+                                        (lambda (_symbol newval operation _where)
+                                          (and (eq operation 'set)
+                                               (eq newval t))))
+                       :check (lambda () test-once-run-now))
+      (lambda () (cl-incf test-once-counter)))
+    (expect test-once-counter :to-be 0)
+    (expect (get-variable-watchers 'test-once-watched))
+
+    (setq test-once-watched 1)
+    (expect test-once-counter :to-be 0)
+    (expect (get-variable-watchers 'test-once-watched))
+
+    (setq test-once-watched t)
+    (expect test-once-counter :to-be 0)
+    (expect (get-variable-watchers 'test-once-watched))
+
+    (setq test-once-run-now t)
+    (setq test-once-watched t)
+    (expect test-once-counter :to-be 1)
+    (expect (not (get-variable-watchers 'test-once-watched))))
 
   (it "should support list shorthand for hooks that end in -hook"
     (once-x-call (list 'test-once-hook)

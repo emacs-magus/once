@@ -48,6 +48,7 @@ If you are familiar with Doom's =:after-call= (transient hooks and advice), =:de
       - [[#hooks][:hooks]]
       - [[#packages][:packages]]
       - [[#advice][advice]]
+      - [[#variables][:variables]]
       - [[#check][:check]]
       - [[#initial-check][:initial-check]]
       - [[#local-checks][Local Checks]]
@@ -443,13 +444,13 @@ The benefit over just using ~(once ...)~ is that when ~once-shorthand~ is non-ni
 :PROPERTIES:
 :CUSTOM_ID: condition-system-details
 :END:
-At least one of =:hooks=, =:packages= (or =:files=), or the advice keywords should be specified.  When more than one is specified, any of them can trigger the condition (the behavior is OR not AND).  The check keywords are optional.
+At least one of =:hooks=, =:packages= (a.k.a. =:files=), =:variables= (a.k.a. =:vars=), or the advice keywords should be specified.  When more than one is specified, any of them can trigger the condition (the behavior is OR not AND).  The check keywords are optional.
 
 **** =:hooks=
 :PROPERTIES:
 :CUSTOM_ID: hooks
 :END:
-=:hooks= should be 1+ hooks that can trigger the functions to run.
+=:hooks= should be 1+ hooks that can trigger the function(s) to run.
 
 #+begin_src emacs-lisp
 ;; call `cl-lib-highlight-initialize' the first time `emacs-lisp-mode-hook' runs
@@ -462,7 +463,7 @@ At least one of =:hooks=, =:packages= (or =:files=), or the advice keywords shou
 :PROPERTIES:
 :CUSTOM_ID: packages
 :END:
-=:packages= (or =:files=, which is an alias) should be 1+ files or features (i.e. either a string or symbol just like the FILE argument to ~eval-after-load~) that can trigger the functions to run when loaded.
+=:packages= (or =:files=, which is an alias) should be 1+ files or features (i.e. either a string or symbol just like the FILE argument to ~eval-after-load~) that can trigger the function(s) to run when loaded.
 
 #+begin_src emacs-lisp
 ;; load yasnippet-snippets as soon as yasnippet is loaded
@@ -485,6 +486,14 @@ Any WHERE keyword (e.g. =:before=) can be used to specify advice:
 ;; or if `once-shorthand' is enabled
 (once #'after-find-file #'global-hardhat-mode)
 #+end_src
+
+**** =:variables=
+:PROPERTIES:
+:CUSTOM_ID: variables
+:END:
+=:variables= (or =:vars=, which is an alias) should be 1+ variables that can trigger the function(s) to run when set.  [[#local-checks][Local checks]] can be used to only trigger the function(s) when a variable is set to a specific value.
+
+# TODO good example?
 
 **** =:check=
 :PROPERTIES:
@@ -534,7 +543,7 @@ Having checks for individual triggers is also possible:
       :packages (list 'evil #'yet-another-check) 'no-check-package)
 #+end_src
 
-Unlike =:check= and =:initial-check=, local checks are passed the arguments the hook (in the case of ~run-hook-with-args~) or advised symbol was run with.  Packages can take a local check, but it won't be passed any arguments and may not be useful.
+Unlike =:check= and =:initial-check=, local checks are passed the arguments the hook (in the case of ~run-hook-with-args~) or advised symbol was run with.  For =:variables=, the local check is passed the arguments =SYMBOL NEWVAL OPERATION WHERE= (just like the arguments to =WATCH-FUNCTION= for ~add-variable-watcher~).  Packages can take a local check, but it won't be passed any arguments and may not be useful.
 
 Local checks allow mimicking the behavior of ~evil-delay~ and Doom's ~defer-until!~.
 #+begin_src emacs-lisp

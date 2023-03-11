@@ -1,11 +1,11 @@
-;;; once-setup.el --- description -*- lexical-binding: t; -*-
+;;; once-setup.el --- Setup.el integration for once.el -*- lexical-binding: t; -*-
 
 ;; Author: Fox Kiester <noctuid@pir-hana.cafe>
 ;; URL: https://github.com/emacs-magus/once
 ;; Created: May 06, 2022
 ;; Keywords: convenience dotemacs startup config
-;; TODO add once dependency
 ;; NOTE setup.el depends on 26.1
+;; TODO add once; currently will break tests since not packaged though
 ;; Package-Requires: ((emacs "26.1") (setup "1.2.0"))
 ;; Version: 0.1.0
 
@@ -33,6 +33,7 @@
 
 ;;; Code:
 (require 'once)
+(require 'once-incrementally)
 (require 'setup)
 
 (defvar once-setup-keyword-aliases nil
@@ -78,7 +79,7 @@ also be converted to the inferred mode name."
                          features)
                       (list `',(setup-get 'feature)))))
       `(once-x-require ,condition ,@features)))
-  :documentation "Once CONDITION is met the first time, require PACKAGES.
+  :documentation "Once CONDITION is met the first time, require FEATURES.
 This is the same as `once-x-require' except if FEATURES are unspecified, the
 feature to require will be inferred (e.g. if in a (setup foo), require \\='foo).
 If any item in FEATURES is nil, it will also be converted to the inferred
@@ -86,7 +87,24 @@ feature name."
   :indent 1
   :debug '(form body))
 
+(setup-define (once-setup--keyword ":once-require-incrementally")
+  (lambda (&rest features)
+    (let ((features (if features
+                        (mapcar
+                         (lambda (feature)
+                           (if feature
+                               feature
+                             (setup-get 'feature)))
+                         features)
+                      (list (setup-get 'feature)))))
+      `(once-require-incrementally ,@features)))
+  :documentation "Require FEATURES incrementally after idle time.
+This is the same as `once-require-incrementally' except if FEATURES are
+unspecified, the feature to require will be inferred (e.g. if in a (setup foo),
+require \\='foo).  If any item in FEATURES is nil, it will also be converted to
+the inferred feature name."
+  :indent 0
+  :debug '(body))
+
 (provide 'once-setup)
-;; TODO https://github.com/alphapapa/makem.sh/issues/7#issuecomment-1141748201
-;; LocalWords: arg satch el uninterned init
 ;;; once-setup.el ends here

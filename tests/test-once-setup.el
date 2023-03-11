@@ -77,4 +77,19 @@
                                 (:once-x-require condition 'a nil 'bar)))
             :to-equal '(once-x-require condition 'a 'foo 'bar))))
 
+;; * :once-require-incrementally
+(describe "The :once-require-incrementally setup.el keyword"
+  (it "should expand to once-incrementally"
+    (expect (macroexpand-all '(setup foo
+                                (:once-require-incrementally bar)))
+            :to-equal '(once-incrementally :features 'bar)))
+  (it "should infer the feature when none are specified"
+    (expect (macroexpand-all '(setup foo
+                                (:once-require-incrementally)))
+            :to-equal '(once-incrementally :features 'foo)))
+  (it "should infer the feature when nil is specified in the feature list"
+    (expect (macroexpand-all '(setup foo
+                                (:once-require-incrementally a nil bar)))
+            :to-equal '(once-incrementally :features 'a 'foo 'bar))))
+
 ;;; test-once-setup.el ends here

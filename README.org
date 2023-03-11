@@ -792,16 +792,82 @@ This condition is similar to ~once-file~ but only activates in a writable buffer
 :END:
 This condition is similar to ~once-file~ but only activates in a writable buffer when entering an evil "insert" state.  Which states are considered insert states can be changed by customizing =once-evil-insert-states= (insert and emacs by default).
 
-** ~once-require-incrementally~
+** ~once-incrementally~, ~once-call-incrementally~, and ~once-require-incrementally~
 :PROPERTIES:
 :CUSTOM_ID: once-require-incrementally
 :END:
-Not yet implemented.
+
+These helpers are inspired by Doom's =:defer-incrementally= use-package keyword which allows you to defer packages to be loaded during idle time after startup.  This is useful when there is not some better specific condition to load a package and you don't need it immediately.  It can also help incrementally load large packages that have a lot of dependencies like org mode.  Unlike using ~run-with-idle-timer~ directly, this process spreads out loading the packages.
+
+The ~once-idle-timer~ variable controls how long to wait after startup to begin the incremental loading process (or how long after a user input to continue it).  When it is set to 0, all code will run immediately after startup.  When it is set to nil, no code will ever run.  ~once-incremental-run-interval~ specifies the time to wait in between each incremental run/load.  Any user input during this time period will cancel loading until the next period of idle time.
+
+To set up incremental loading, you should run ~once-enable-incremental-loading~ somewhere in your init file.  This will enable incremental loading after startup.
+ #+begin_src emacs-lisp
+(require 'once-incrementally)
+(once-enable-incremental-loading)
+ #+end_src
+
+~once-incrementally~ is the base function used to run code incrementally.  Unlike Doom's =:defer-incrementally=, it can run arbitrary functions and also supports adding code to run at a specific "depth" (priority).  The default behavior is to run code in the order it was deferred, but a depth of -90, for example, could be given to prioritize some code to run first (see the documentation for ~add-hook~ for more information on depth).
+
+ #+begin_src emacs-lisp
+;; load `org-mode' incrementally
+(once-incrementally
+  :features
+  'calendar 'find-func 'format-spec 'org-macs 'org-compat 'org-faces
+  'org-entities 'org-list 'org-pcomplete 'org-src 'org-footnote 'org-macro 'ob
+  'org 'org-agenda 'org-capture)
+;; run some code after that
+(once-incrementally :functions #'my-post-idle-setup)
+;; load `ligature' first
+(once-incrementally -90 :features 'ligature)
+ #+end_src
+
+Numbers apply a depth to everything after.  The default depth is 90.  Depths and the =:features= or =:functions= keywords can be specified multiple times.
+
+You generally will not use ~once-incrementally~ directly.  You'll probably use ~once-call-incrementally~ or ~once-require-incrementally~ instead.  If you don't like their syntax, you can build your own macro on top of ~once-incrementally~.
+
+~once-require-incrementally~ works like ~once-incrementally~ but only supports unquoted features.
+ #+begin_src emacs-lisp
+;; incrementally load `org-mode'
+(once-require-incrementally
+  calendar find-func format-spec org-macs org-compat org-faces org-entities
+  org-list org-pcomplete org-src org-footnote org-macro ob org org-agenda
+  org-capture)
+;; load `ligature' first
+(once-require-incrementally -90 ligature)
+ #+end_src
+
+~once-call-incrementally~ is somewhat similar to ~once~ in that it will automatically wrap forms in lambdas.
+ #+begin_src emacs-lisp
+(defun my-idle-setup ()
+  (foo)
+  (bar)
+  (baz))
+
+(once-call-incrementally #'my-idle-setup #'qux)
+
+;; can also do
+(once-call-incrementally
+  (foo)
+  (bar)
+  (baz)
+  (qux))
+
+;; can mix and match and include depths
+(once-call-incrementally
+  10
+  (foo)
+  (bar)
+  #'baz
+  30
+  (qux))
+ #+end_src
 
 *** Use-package =:once-require-incrementally= / =:require-incrementally=
 :PROPERTIES:
 :CUSTOM_ID: use-package-once-require-incrementally--require-incrementally
 :END:
+
 *** Setup.el  =:once-require-incrementally= / =:require-incrementally=
 :PROPERTIES:
 :CUSTOM_ID: setupel--once-require-incrementally--require-incrementally

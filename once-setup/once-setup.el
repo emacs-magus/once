@@ -86,6 +86,41 @@ feature name."
   :indent 1
   :debug '(form body))
 
+(setup-define (once-setup--keyword ":once-loaded")
+  (lambda (&rest body)
+    `(once-with-eval-after-load ',(setup-get 'feature) ,body))
+  :documentation "Evaluate BODY once, when the current feature loads.
+Like `with-eval-after-load' but don't always add to
+`after-load-alist'. See `once-with-eval-after-load' for more
+information."
+  :debug '(body))
+
+(setup-define (once-setup--keyword ":once-after")
+  (lambda (features &rest body)
+    (let ((body `(progn ,@body)))
+      (dolist (feature (nreverse (ensure-list features)))
+        (setq body `(once-eval-after-load ',feature ,body)))
+      body))
+  :documentation "Evaluate BODY once, when FEATURES load.
+Like `eval-after-load' but don't always add to
+`after-load-alist'. See `once-eval-after-load' for more
+information."
+  :debug '(form body))
+
+(setup-define (once-setup--keyword ":once-with")
+  (lambda (features &rest body)
+    (let ((body `(progn ,@body)))
+      (dolist (feature (nreverse (ensure-list features)))
+        (setq body `(once-with-eval-after-load ',feature ,body)))
+      body))
+  :documentation "Evaluate BODY once, when FEATURES load.
+Like `with-eval-after-load' but don't always add to
+`after-load-alist'. See `once-with-eval-after-load' for more
+information."
+  :debug '(form body))
+
+
+
 (provide 'once-setup)
 ;; TODO https://github.com/alphapapa/makem.sh/issues/7#issuecomment-1141748201
 ;; LocalWords: arg satch el uninterned init

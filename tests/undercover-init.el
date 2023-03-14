@@ -1,9 +1,7 @@
-;;; test-once-setup-aliases.el --- Test aliases for once-setup.el -*- lexical-binding: t; -*-
+;;; undercover-init.el --- Setup for undercover.el -*- lexical-binding: t; -*-
 
 ;; Author: Fox Kiester <noctuid@pir-hana.cafe>
 ;; URL: https://github.com/emacs-magus/once
-;; Package-Requires: ((emacs "26.1") (buttercup "1.25") (undercover "0.8.0"))
-;; Version: 0.1.0
 
 ;; This file is not part of GNU Emacs.
 
@@ -22,26 +20,16 @@
 
 ;;; Commentary:
 ;;
-;; Test aliases for once-setup.el
+;; Setup for undercover.el.
 ;;
 
 ;; For more information see the README in the online repository.
 
 ;;; Code:
-(load-file "./tests/undercover-init.el")
+(when (require 'undercover nil t)
+  (undercover "*.el" "once-setup/*.el" "once-use-package/*.el"
+              (:exclude "test-*.el")
+              (:report-format 'codecov)
+              (:send-report nil)))
 
-(require 'buttercup)
-
-(defvar once-setup-keyword-aliases)
-(setq once-setup-keyword-aliases
-      '(":once-require-incrementally" ":require-incrementally"))
-(require 'once-setup)
-
-(describe "once-setup-keyword-aliases"
-  (it "should allow defining an alias for a keyword"
-    (test-once-use-package-compare
-     (macroexpand-1 '(setup foo
-                       (:require-incrementally t)))
-     '(once-require-incrementally foo))))
-
-;;; test-once-setup-aliases.el ends here
+;;; undercover-init.el ends here

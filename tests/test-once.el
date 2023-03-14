@@ -24,11 +24,7 @@
 
 ;;; Code:
 ;; * Setup
-(when (require 'undercover nil t)
-  (undercover "*.el"
-              (:exclude "test-*.el")
-              (:report-format 'codecov)
-              (:send-report nil)))
+(load-file "./tests/undercover-init.el")
 
 (require 'buttercup)
 (require 'once)

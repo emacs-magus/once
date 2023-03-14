@@ -33,12 +33,14 @@
 
 (defun once--function-p (form)
   "Return whether FORM (a form passed to a macro) is a function.
-FORM is considered a function if it is \\='foo, #\\='foo, or (lambda () ..)."
+FORM is considered a function if it looks like \\='foo, #\\='foo, or (lambda ()
+...)."
   (or (symbolp form)
       (and (listp form)
            (memq (car form) '(lambda function quote)))))
 
 (provide 'once-core)
 ;; TODO https://github.com/alphapapa/makem.sh/issues/7#issuecomment-1141748201
-;; LocalWords: arg args satch el uninterned init magit newval corge
+;; LocalWords: arg args satch el uninterned init magit newval corge arglist
+;; LocalWords: arglists normalizers
 ;;; once-core.el ends here

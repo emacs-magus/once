@@ -1,6 +1,9 @@
 ;;; test-once-setup.el --- Tests for once-setup.el -*- lexical-binding: t; -*-
 
-;; Package-Requires: ((emacs "26.1") (buttercup "1.25")) (undercover "0.8.0"))
+;; Author: Fox Kiester <noctuid@pir-hana.cafe>
+;; URL: https://github.com/emacs-magus/once
+;; Package-Requires: ((emacs "26.1") (buttercup "1.25") (undercover "0.8.0"))
+;; Version: 0.1.0
 
 ;; This file is not part of GNU Emacs.
 
@@ -19,8 +22,10 @@
 
 ;;; Commentary:
 ;;
-;;  Tests for once-setup.el
+;; Tests for once-setup.el
 ;;
+
+;; TODO test aliases
 
 ;;; Code:
 ;; * Setup
@@ -60,7 +65,16 @@
   (it "should infer the function to run when no body is specified"
     (expect (macroexpand-all '(setup foo
                                 (:once condition)))
-            :to-equal '(once-x-call condition #'foo-mode))))
+            :to-equal '(once-x-call condition #'foo-mode)))
+  (describe "should infer the function when given an arglist containing"
+    (it "t as a placeholder"
+      (expect (macroexpand-all '(setup foo
+                                  (:once condition t #'foo-2-mode)))
+              :to-equal '(once-x-call condition #'foo-mode #'foo-2-mode)))
+    (it "nil as a placeholder"
+      (expect (macroexpand-all '(setup foo
+                                  (:once condition nil #'foo-2-mode)))
+              :to-equal '(once-x-call condition #'foo-mode #'foo-2-mode)))))
 
 ;; * :once-x-require
 (describe "The :once-x-require setup.el keyword"
@@ -72,10 +86,15 @@
     (expect (macroexpand-all '(setup foo
                                 (:once-x-require condition)))
             :to-equal '(once-x-require condition 'foo)))
-  (it "should infer the feature when nil is specified in the feature list"
-    (expect (macroexpand-all '(setup foo
-                                (:once-x-require condition 'a nil 'bar)))
-            :to-equal '(once-x-require condition 'a 'foo 'bar))))
+  (describe "should infer the function when given an arglist containing"
+    (it "t as a placeholder"
+      (expect (macroexpand-all '(setup foo
+                                  (:once-x-require condition 'a t 'bar)))
+              :to-equal '(once-x-require condition 'a 'foo 'bar)))
+    (it "nil as a placeholder"
+      (expect (macroexpand-all '(setup foo
+                                  (:once-x-require condition 'a nil 'bar)))
+              :to-equal '(once-x-require condition 'a 'foo 'bar)))))
 
 ;; * :once-require-incrementally
 (describe "The :once-require-incrementally setup.el keyword"
@@ -87,9 +106,14 @@
     (expect (macroexpand-all '(setup foo
                                 (:once-require-incrementally)))
             :to-equal '(once-incrementally :features 'foo)))
-  (it "should infer the feature when nil is specified in the feature list"
-    (expect (macroexpand-all '(setup foo
-                                (:once-require-incrementally a nil bar)))
-            :to-equal '(once-incrementally :features 'a 'foo 'bar))))
+  (describe "should infer the function when given an arglist containing"
+    (it "t as a placeholder"
+      (expect (macroexpand-all '(setup foo
+                                  (:once-require-incrementally a t bar)))
+              :to-equal '(once-incrementally :features 'a 'foo 'bar)))
+    (it "nil as a placeholder"
+      (expect (macroexpand-all '(setup foo
+                                  (:once-require-incrementally a nil bar)))
+              :to-equal '(once-incrementally :features 'a 'foo 'bar)))))
 
 ;;; test-once-setup.el ends here

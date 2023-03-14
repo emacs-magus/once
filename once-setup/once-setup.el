@@ -1,4 +1,4 @@
-;;; once-setup.el --- Setup.el integration for once.el -*- lexical-binding: t; -*-
+;;; once-setup.el --- Once.el keyword for setup.el -*- lexical-binding: t; -*-
 
 ;; Author: Fox Kiester <noctuid@pir-hana.cafe>
 ;; URL: https://github.com/emacs-magus/once
@@ -26,20 +26,23 @@
 
 ;;; Commentary:
 ;;
-;;  Once.el keywords for setup.el.
+;; once.el setup.el integration.
 ;;
 
 ;; For more information see the README in the online repository.
 
 ;;; Code:
+(require 'setup)
 (require 'once)
 (require 'once-incrementally)
-(require 'setup)
 
 (defvar once-setup-keyword-aliases nil
   "Plist to rename the keywords provided by once-setup.
 For example:
 \(list \":once-x-require\" \":require-once\")
+
+You should confirm there are no conflicts with existing keywords before removing
+the \"once-\" prefix.
 
 Note that this must be set before loading once-setup.")
 
@@ -53,9 +56,9 @@ Note that this must be set before loading once-setup.")
     (let ((body (if body
                     (mapcar
                      (lambda (item)
-                       (if item
-                           item
-                         `#',(setup-get 'mode)))
+                       (if (memq item '(nil t))
+                           `#',(setup-get 'mode)
+                         item))
                      body)
                   (list `#',(setup-get 'mode)))))
       `(once ,condition
@@ -73,9 +76,9 @@ also be converted to the inferred mode name."
     (let ((features (if features
                         (mapcar
                          (lambda (feature)
-                           (if feature
-                               feature
-                             `',(setup-get 'feature)))
+                           (if (memq feature '(nil t))
+                               `',(setup-get 'feature)
+                             feature))
                          features)
                       (list `',(setup-get 'feature)))))
       `(once-x-require ,condition ,@features)))
@@ -92,9 +95,9 @@ feature name."
     (let ((features (if features
                         (mapcar
                          (lambda (feature)
-                           (if feature
-                               feature
-                             (setup-get 'feature)))
+                           (if (memq feature '(nil t))
+                               (setup-get 'feature)
+                             feature))
                          features)
                       (list (setup-get 'feature)))))
       `(once-require-incrementally ,@features)))

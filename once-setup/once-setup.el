@@ -44,7 +44,7 @@ Note that this must be set before loading once-setup.")
 
 (defun once-setup--keyword (default-name)
   "Return DEFAULT-NAME or its value in `once-setup-keyword-aliases'."
-  (intern (or (plist-get once-setup-keyword-aliases default-name)
+  (intern (or (plist-get once-setup-keyword-aliases default-name #'string=)
               default-name)))
 
 (setup-define (once-setup--keyword ":once")

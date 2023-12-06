@@ -221,7 +221,7 @@ With =use-package=, the mode to run can be inferred:
 (setup (:package once-setup)
   (eval-and-compile
     ;; must set before loading
-    (setq once-setup-aliases
+    (setq once-setup-keyword-aliases
           '(":once-x-require" ":require-once"
             ":once-require-incrementally" ":require-incrementally")))
   (:require once-setup))
@@ -649,7 +649,7 @@ You can use =nil= in place of the package name if you want to additionally requi
 :PROPERTIES:
 :CUSTOM_ID: setupel-once-x-require--require-once
 :END:
-It is recommend you alias =:once-x-require= to =:require-once= using =once-setup-aliases=.
+It is recommend you alias =:once-x-require= to =:require-once= using =once-setup-keyword-aliases=.
 
 The keyword takes any number of ~once-x-require~ argument lists:
 #+begin_src emacs-lisp

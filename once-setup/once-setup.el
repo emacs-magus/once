@@ -39,7 +39,7 @@
 (defvar once-setup-keyword-aliases nil
   "Plist to rename the keywords provided by once-setup.
 For example:
-\(list \":once-x-require\" \":require-once\")
+\(list :once-x-require :require-once)
 
 You should confirm there are no conflicts with existing keywords before removing
 the \"once-\" prefix.
@@ -48,10 +48,10 @@ Note that this must be set before loading once-setup.")
 
 (defun once-setup--keyword (default-name)
   "Return DEFAULT-NAME or its value in `once-setup-keyword-aliases'."
-  (intern (or (plist-get once-setup-keyword-aliases default-name #'string=)
-              default-name)))
+  (or (plist-get once-setup-keyword-aliases default-name)
+      default-name))
 
-(setup-define (once-setup--keyword ":once")
+(setup-define (once-setup--keyword :once)
   (lambda (condition &rest body)
     (let ((body (if body
                     (mapcar
@@ -71,7 +71,7 @@ also be converted to the inferred mode name."
   :indent 1
   :debug '(form body))
 
-(setup-define (once-setup--keyword ":once-x-require")
+(setup-define (once-setup--keyword :once-x-require)
   (lambda (condition &rest features)
     (let ((features (if features
                         (mapcar
@@ -90,7 +90,7 @@ feature name."
   :indent 1
   :debug '(form body))
 
-(setup-define (once-setup--keyword ":once-require-incrementally")
+(setup-define (once-setup--keyword :once-require-incrementally)
   (lambda (&rest features)
     (let ((features (if features
                         (mapcar

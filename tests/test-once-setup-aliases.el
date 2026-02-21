@@ -34,7 +34,7 @@
 
 (defvar once-setup-keyword-aliases)
 (setq once-setup-keyword-aliases
-      '(":once-require-incrementally" ":require-incrementally"))
+      '(:once-require-incrementally :require-incrementally))
 (require 'once-setup)
 
 (describe "once-setup-keyword-aliases"

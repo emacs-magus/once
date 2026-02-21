@@ -40,7 +40,7 @@
 (defvar once-use-package-keyword-aliases nil
   "Plist to rename the keywords provided by once-use-package.
 For example:
-\(list \":once-x-require\" \":require-once\")
+\(list :once-x-require :require-once)
 
 You should confirm there are no conflicts with existing keywords before removing
 the \"once-\" prefix.
@@ -48,7 +48,7 @@ the \"once-\" prefix.
 Note that this must be set before loading once-use-package.")
 
 (defvar once-use-package--keyword-names
-  '(":once" ":once-x-require" ":once-require-incrementally")
+  '(:once :once-x-require :once-require-incrementally)
   "List of the default names of the keywords that once-use-package creates.")
 
 ;; * :once
@@ -146,9 +146,9 @@ valid `once-require-incrementally' arglists."
 (defun once-use-package--keyword (name)
   "Return the once-use-package keyword for NAME.
 If NAME appears in `once-use-package-keyword-aliases', use the user-defined
-alias.  Otherwise return NAME as a symbol."
-  (intern (or (plist-get once-use-package-keyword-aliases name #'string=)
-              name)))
+alias.  Otherwise return NAME."
+  (or (plist-get once-use-package-keyword-aliases name)
+      name))
 
 (defun once-use-package-setup ()
   "Add once keywords to `use-package-keywords'.

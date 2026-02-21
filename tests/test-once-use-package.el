@@ -210,7 +210,7 @@ Remove most of the `use-package' boilerplate from EXPANSION."
 (describe "once-use-package-keyword-aliases"
   (before-all
     (setq once-use-package-keyword-aliases
-          '(":once-require-incrementally" ":require-incrementally"))
+          '(:once-require-incrementally :require-incrementally))
     (once-use-package-setup))
   (after-all
     (setq once-use-package-keyword-aliases nil)

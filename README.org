@@ -205,8 +205,8 @@ With =use-package=, the mode to run can be inferred:
   (eval-and-compile
     ;; must set before loading
     (setq once-use-package-aliases
-          '(":once-x-require" ":require-once"
-            ":once-require-incrementally" ":require-incrementally")))
+          '(:once-x-require :require-once
+            :once-require-incrementally :require-incrementally)))
   (require 'once-use-package))
 #+end_src
 
@@ -224,8 +224,8 @@ With =use-package=, the mode to run can be inferred:
   (eval-and-compile
     ;; must set before loading
     (setq once-setup-keyword-aliases
-          '(":once-x-require" ":require-once"
-            ":once-require-incrementally" ":require-incrementally")))
+          '(:once-x-require :require-once
+            :once-require-incrementally :require-incrementally)))
   (:require once-setup))
 #+end_src
 

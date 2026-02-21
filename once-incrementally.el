@@ -128,8 +128,9 @@ remaining code after `once-incremental-run-interval'."
 (defun once--begin-incremental-loading ()
   "Start the incremental loading process."
   (when (numberp once-idle-timer)
-    (if (zerop once-incremental-run-interval)
-        (mapc #'once--run once--incremental-code)
+    (if (zerop once-idle-timer)
+        (while once--incremental-code
+          (once--run (pop once--incremental-code)))
       (run-with-idle-timer once-idle-timer
                            nil #'once--run-incrementally))))
 

@@ -12,7 +12,7 @@
 - **Language**: Emacs Lisp with `lexical-binding: t` in file header
 - **Naming**: Private functions/vars use `--` prefix (e.g., `once--function-p`)
 - **Documentation**: All functions must have docstrings
-- **Formatting**: space indentation, no tabs; max 80 chars preferred
+- **Formatting**: space indentation, no tabs; max 80 chars preferred; closing parens should be all on the same line
 - **Imports**: Use `require` at top of file; optional deps checked with `featurep`
 - **Customization**: Use `defcustom` for user settings with `:group 'once`
 - **Errors**: Use `error` for fatal errors

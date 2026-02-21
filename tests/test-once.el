@@ -979,8 +979,8 @@ This is `ert-run-idle-timers'"
       (expect test-once-counter :to-be 0)
       (once--begin-incremental-loading)
       (expect once--incremental-code
-              :to-equal '((:function test-once-incf-counter)))
-      (expect test-once-counter :to-be 0))))
+              :to-equal nil)
+      (expect test-once-counter :to-be 1))))
 
 ;; * once-call-incrementally
 (describe "once-call-incrementally"

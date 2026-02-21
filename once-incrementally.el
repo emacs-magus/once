@@ -69,7 +69,7 @@ form (:feature <feature>).")
   (let ((default-directory user-emacs-directory)
         (inhibit-message t)
         (file-name-handler-alist
-         (list (rassq 'jka-compr-handler file-name-handler-alist))))
+         (delq nil (list (rassq 'jka-compr-handler file-name-handler-alist)))))
     (require feature nil t)
     t))
 

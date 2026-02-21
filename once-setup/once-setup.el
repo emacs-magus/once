@@ -85,7 +85,7 @@ also be converted to the inferred mode name."
   :documentation "Once CONDITION is met the first time, require FEATURES.
 This is the same as `once-x-require' except if FEATURES are unspecified, the
 feature to require will be inferred (e.g. if in a (setup foo), require \\='foo).
-If any item in FEATURES is nil, it will also be converted to the inferred
+If any item in FEATURES is nil or t, it will also be converted to the inferred
 feature name."
   :indent 1
   :debug '(form body))
@@ -104,8 +104,8 @@ feature name."
   :documentation "Require FEATURES incrementally after idle time.
 This is the same as `once-require-incrementally' except if FEATURES are
 unspecified, the feature to require will be inferred (e.g. if in a (setup foo),
-require \\='foo).  If any item in FEATURES is nil, it will also be converted to
-the inferred feature name."
+require \\='foo).  If any item in FEATURES is nil or t, it will also be
+converted to the inferred feature name."
   :indent 0
   :debug '(body))
 

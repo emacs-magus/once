@@ -1,4 +1,4 @@
-;;; once-setup.el --- Once.el use-package keywords -*- lexical-binding: t; -*-
+;;; once-use-package.el --- Once.el use-package keywords -*- lexical-binding: t; -*-
 
 ;; Author: Fox Kiester <noctuid@pir-hana.cafe>
 ;; URL: https://github.com/emacs-magus/once
@@ -91,7 +91,7 @@ valid `once' arglists."
 ;; * :once-x-require
 (defun use-package-normalize/:once-x-require (name _keyword args)
   "Normalize package NAME's :once-x-require ARGS.
-Convert each each to a valid `once-x-require' arglist."
+Convert each to a valid `once-x-require' arglist."
   (let ((package `',name))
     (cl-loop for arg in args
              collect (cond ((once-use-package--non-list-condition-p arg)
@@ -117,7 +117,7 @@ valid `once-x-require' arglists."
 ;; * :once-require-incrementally
 (defun use-package-normalize/:once-require-incrementally (name _keyword args)
   "Normalize package NAME's :once-require-incrementally ARGS.
-Convert each each to a valid `once-require-incrementally' arglist."
+Convert each to a valid `once-require-incrementally' arglist."
   (cl-loop for arg in args
            collect (cond ((once-use-package--non-list-condition-p arg)
                           (if (memq arg '(nil t))

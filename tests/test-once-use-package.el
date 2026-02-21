@@ -137,7 +137,7 @@ Remove most of the `use-package' boilerplate from EXPANSION."
        (macroexpand-1 '(use-package foo
                          :once-x-require #'bar))
        '(once-x-require #'bar 'foo)))
-    (it "a varibale holding a condition"
+    (it "a variable holding a condition"
       (test-once-use-package-compare
        (macroexpand-1 '(use-package foo
                          :once-x-require bar-condition))

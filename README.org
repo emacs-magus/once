@@ -399,7 +399,7 @@ The function to run will also be inferred from the package name if the argument 
   :once (once-input nil #'foo-2-mode))
  #+end_src
 
-Note that any list (other than =(quote some-hook)= or =(function some-function)=) will considered to be an argument list.  You cannot do this:
+Note that any list (other than =(quote some-hook)= or =(function some-function)=) will be considered to be an argument list.  You cannot do this:
 #+begin_src emacs-lisp
 ;; WRONG!
 (use-package editorconfig

@@ -692,14 +692,14 @@ HOOK will run FUNCTION twice the first time."
           (format "Thin wrapper around function %S" function)))
       (add-hook hook wrapper depth local))))
 
-(defalias 'once-load 'once-after-load)
+(define-obsolete-function-alias 'once-load 'once-after-load "2026-02-21")
 
 (defmacro once-hook! (hook &rest body)
   (declare (indent 1) (debug t))
   `(once (list :hooks ',hook) (lambda () ,@body)))
 
 (defmacro once-load! (feature &rest body)
-  (declare (indent 1) (debug t))
+  (declare (indent 1) (debug t) (obsolete once-with "2026-02-21"))
   `(once-with ',feature ,@body))
 
 (provide 'once)

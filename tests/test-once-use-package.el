@@ -2,7 +2,7 @@
 
 ;; Author: Fox Kiester <noctuid@pir-hana.cafe>
 ;; URL: https://github.com/emacs-magus/once
-;; Package-Requires: ((emacs "26.1") (buttercup "1.25") (undercover "0.8.0"))
+;; Package-Requires: ((emacs "26.1") (buttercup "1.38") (undercover "0.8.0"))
 ;; Version: 0.1.0
 
 ;; This file is not part of GNU Emacs.

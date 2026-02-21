@@ -2,7 +2,7 @@
 
 ;; Author: Fox Kiester <noctuid@pir-hana.cafe>
 ;; URL: https://github.com/emacs-magus/once
-;; Package-Requires: ((emacs "26.1") (buttercup "1.25") (undercover "0.8.0"))
+;; Package-Requires: ((emacs "26.1") (buttercup "1.38") (undercover "0.8.0"))
 ;; Version: 0.1.0
 
 ;; This file is not part of GNU Emacs.
@@ -24,8 +24,6 @@
 ;;
 ;; Tests for once-setup.el
 ;;
-
-;; TODO test aliases
 
 ;;; Code:
 ;; * Setup
@@ -97,19 +95,19 @@
   (it "should expand to once-incrementally"
     (expect (macroexpand-all '(setup foo
                                 (:once-require-incrementally bar)))
-            :to-equal '(once-incrementally :features 'bar)))
+            :to-equal (macroexpand-1 '(once-incrementally :features 'bar))))
   (it "should infer the feature when none are specified"
     (expect (macroexpand-all '(setup foo
                                 (:once-require-incrementally)))
-            :to-equal '(once-incrementally :features 'foo)))
+            :to-equal (macroexpand-1 '(once-incrementally :features 'foo))))
   (describe "should infer the function when given an arglist containing"
     (it "t as a placeholder"
       (expect (macroexpand-all '(setup foo
                                   (:once-require-incrementally a t bar)))
-              :to-equal '(once-incrementally :features 'a 'foo 'bar)))
+              :to-equal (macroexpand-1 '(once-incrementally :features 'a 'foo 'bar))))
     (it "nil as a placeholder"
       (expect (macroexpand-all '(setup foo
                                   (:once-require-incrementally a nil bar)))
-              :to-equal '(once-incrementally :features 'a 'foo 'bar)))))
+              :to-equal (macroexpand-1 '(once-incrementally :features 'a 'foo 'bar))))))
 
 ;;; test-once-setup.el ends here

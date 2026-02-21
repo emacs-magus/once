@@ -2,7 +2,7 @@
 
 ;; Author: Fox Kiester <noctuid@pir-hana.cafe>
 ;; URL: https://github.com/emacs-magus/once
-;; Package-Requires: ((emacs "26.1") (buttercup "1.25") (undercover "0.8.0"))
+;; Package-Requires: ((emacs "26.1") (buttercup "1.38") (undercover "0.8.0"))
 ;; Version: 0.1.0
 
 ;; This file is not part of GNU Emacs.
@@ -39,9 +39,11 @@
 
 (describe "once-setup-keyword-aliases"
   (it "should allow defining an alias for a keyword"
-    (test-once-use-package-compare
-     (macroexpand-1 '(setup foo
-                       (:require-incrementally t)))
-     '(once-require-incrementally foo))))
+    (expect (macroexpand-1 '(setup foo
+                              (:require-incrementally t)))
+            :to-equal (macroexpand-1 '(once-require-incrementally foo)))))
+
+(makunbound 'once-setup-keywoard-aliases)
+(unload-feature 'once-setup)
 
 ;;; test-once-setup-aliases.el ends here

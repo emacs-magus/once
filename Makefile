@@ -19,8 +19,7 @@ test: clean
 .PHONY: lint
 lint:
 	./with-gnu-utils/with-gnu-utils \
-		./makem/makem.sh -vv --emacs "$(EMACS)" --sandbox="$(SANDBOX_DIR)" \
-			--exclude once-setup lint
+		./makem/makem.sh -vv --emacs "$(EMACS)" --sandbox="$(SANDBOX_DIR)"
 
 .PHONY: clean
 clean:

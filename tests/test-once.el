@@ -1,6 +1,6 @@
 ;;; test-once.el --- Tests for once.el -*- lexical-binding: t; -*-
 
-;; Package-Requires: ((emacs "26.1") (buttercup "1.25")) (undercover "0.8.0"))
+;; Package-Requires: ((emacs "26.1") (buttercup "1.38")) (undercover "0.8.0"))
 
 ;; This file is not part of GNU Emacs.
 

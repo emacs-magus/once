@@ -942,8 +942,7 @@ This is `ert-run-idle-timers'"
     (test-once-run-timers)
     (expect once--incremental-code :to-be nil)
     (expect (featurep 'test-once-dummy)))
-  ;; TODO need to figure out how to test this correctly
-  (xit "should skip code that errors and continue"
+  (it "should skip code that errors and continue"
     (once-incrementally :functions #'test-once-throw-error
                         :features 'test-once-dummy)
     (once--begin-incremental-loading)
@@ -960,6 +959,17 @@ This is `ert-run-idle-timers'"
     (test-once-run-timers)
     (expect once--incremental-code :to-be nil)
     (expect (featurep 'test-once-dummy)))
+  (it "should skip code that errors and continue when running immediately"
+    (let ((once-idle-timer 0))
+      (once-incrementally :functions #'test-once-throw-error
+                          :features 'test-once-dummy)
+      (expect once--incremental-code
+              :to-equal '((:function test-once-throw-error)
+                          (:feature test-once-dummy)))
+      (expect (not (featurep 'test-once-dummy)))
+      (once--begin-incremental-loading)
+      (expect once--incremental-code :to-be nil)
+      (expect (featurep 'test-once-dummy))))
   (it "should do nothing when once-idle-timer is nil"
     (let (once-idle-timer)
       (once-incrementally :functions #'test-once-incf-counter)

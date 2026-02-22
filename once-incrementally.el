@@ -86,43 +86,49 @@ ITEM should be in the format (:feature <feature>) or (:function <function>)."
 
 (defun once--run-incrementally ()
   "Incrementally run code in `once--incremental-code' until it is empty.
-When failing to load a package or run some code, continue trying to run the
-remaining code after `once-incremental-run-interval'."
+When failing to load a package or run some code, skip it and continue trying to
+run the remaining entries after `once-incremental-run-interval'."
   (let ((gc-cons-threshold most-positive-fixnum)
         item
         type
         code
         idle-time)
-    ;; get the item function to run or feature that has not yet been loaded
+    ;; skip already loaded features and get the next item to run
     (while (and once--incremental-code
                 (progn (setq item (pop once--incremental-code))
                        (setq type (car item))
                        (setq code (cadr item))
                        (and (eq type :feature)
                             (featurep code))))
-      (message "Once already loaded %s" code)
-      (setq item nil))
-    (when item
-      (condition-case-unless-debug e
-          (when (or (null (setq idle-time (current-idle-time)))
-                    (< (float-time idle-time) once-idle-timer)
-                    (not (while-no-input (once--run item))))
-            ;; interrupted, run code later
-            (push item once--incremental-code))
+      (message "Once already loaded %s" code))
+    (cond
+     ;; no more items to process
+     ((null item)
+      (message "Once finished incrementally running code"))
+     ;; not idle long enough - wait for remaining time (or full idle timer)
+     ((or (null (setq idle-time (current-idle-time)))
+          (< (float-time idle-time) once-idle-timer))
+      (let ((wait-time (if idle-time
+                           (- once-idle-timer (float-time idle-time))
+                         once-idle-timer)))
+        (push item once--incremental-code)
+        (run-at-time wait-time nil #'once--run-incrementally)))
+     ;; try to run the item
+     (t
+      (condition-case e
+          (if (while-no-input (once--run item))
+              ;; completed successfully, use short interval for next item
+              (run-at-time once-incremental-run-interval nil
+                           #'once--run-incrementally)
+            ;; interrupted by user input, wait for idle time again
+            (push item once--incremental-code)
+            (run-at-time once-idle-timer nil #'once--run-incrementally))
         (error
-         (message "Error: once failed to incrementally %s %S because: %s"
-                  (if (eq type :feature)
-                      "load"
-                    "run")
-                  code
-                  e))))
-    (if (null once--incremental-code)
-        (message "Once finished incrementally running code")
-      (run-at-time (if idle-time
-                       once-idle-timer
-                     once-incremental-run-interval)
-                   nil
-                   #'once--run-incrementally))))
+         (message "Error: once failed to incrementally run %S because: %s"
+                  item
+                  e)
+         (run-at-time once-incremental-run-interval nil
+                      #'once--run-incrementally)))))))
 
 
 (defun once--begin-incremental-loading ()
@@ -130,7 +136,13 @@ remaining code after `once-incremental-run-interval'."
   (when (numberp once-idle-timer)
     (if (zerop once-idle-timer)
         (while once--incremental-code
-          (once--run (pop once--incremental-code)))
+          (let ((item (pop once--incremental-code)))
+            (condition-case e
+                (once--run item)
+              (error
+               (message "Error: once failed to run %S because: %s"
+                        item
+                        e)))))
       (run-with-idle-timer once-idle-timer
                            nil #'once--run-incrementally))))
 

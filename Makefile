@@ -45,6 +45,11 @@ lint:
 clean:
 	rm -f -- *.elc **/*.elc *-autoloads.el **/*-autoloads.el *\~ **/*\~
 
+.PHONY: check-texi
+check-texi: texi
+	@git diff --exit-code once.texi || \
+		(echo "once.texi is out of date; please run 'make texi' and commit the result" && exit 1)
+
 .PHONY: texi
 texi:
 	@# put index version of readme in texi folder

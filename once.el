@@ -3,8 +3,6 @@
 ;; Author: Fox Kiester <noctuid@pir-hana.cafe>
 ;; URL: https://github.com/emacs-magus/once
 ;; Created: April 14, 2022
-;; Keywords: convenience dotemacs startup config
-;; Package-Requires: ((emacs "26.1"))
 ;; Version: 0.1.0
 
 ;; This file is not part of GNU Emacs.
@@ -24,7 +22,7 @@
 
 ;;; Commentary:
 ;;
-;; Once.el provides extra deferred evaluation utilities that have the common
+;; once.el provides extra deferred evaluation utilities that have the common
 ;; theme of running some code one time once some condition is met.
 
 ;; The primary provided function `once' can run code the first time some hook
@@ -37,15 +35,16 @@
 ;; `magit-status' for the first time).  For concrete examples, see the full
 ;; documentation.
 
-;; Once.el additionally provides `eval-after-load' alternatives (see the full
+;; once.el additionally provides `eval-after-load' alternatives (see the full
 ;; documentation for an explanation of the differences) and some other utilities
-;; like `once-require-incrementally', which is the equivalent of Doom's
-;; `:defer-incrementally' for anyone familiar with it.  In combination with
-;; the other "emacs-magus" packages (especially satch.el), once.el may be useful
-;; for anyone coming from Doom Emacs or some other distribution/starter kit who
-;; wants some of their helpful init.el configuration utilities without having to
-;; copy the code.  The utilities provided by once.el are also more
-;; generic/flexible than Doom's :after-call, transient advice/hooks, etc.
+;; like `once-require-incrementally' (see once-incrementally.el), which is the
+;; equivalent of Doom's :defer-incrementally for anyone familiar with it.  In
+;; combination with the other "emacs-magus" packages (especially satch.el),
+;; once.el may be useful for anyone coming from Doom Emacs or some other
+;; distribution/starter kit who wants some of their helpful init.el
+;; configuration utilities without having to copy the code.  The utilities
+;; provided by once.el are also more generic/flexible than Doom's :after-call,
+;; transient advice/hooks, etc.
 
 ;; For more information see the info manual or README in the online repository.
 
@@ -53,11 +52,9 @@
 (require 'cl-lib)
 (require 'rx)
 
-;; * Settings
-(defgroup once nil
-  "Provides extra deferred evaluation init.el utilities."
-  :group 'convenience)
+(require 'once-core)
 
+;; * Settings
 (defcustom once-shorthand nil
   "Whether to allow shorthand for `once-x-call' conditions.
 When shorthand is enabled, you do not need to specify :hooks, :before (and other
@@ -77,7 +74,8 @@ is the same as
 By setting this variable, you confirm that you understand how the inference
 works and what its limitations are (e.g. you cannot use a feature symbol but
 must use a string for a file instead: \"magit\" not \\='magit)."
-  :type 'boolean)
+  :type 'boolean
+  :group 'once)
 
 ;; * Helpers
 (defmacro once--ensure-lists (&rest vars)
@@ -635,11 +633,9 @@ be a function body:
 
 See `once-x-call' for more information, including how to specify CONDITION."
   (declare (indent 1) (debug (form &or [body def-body])))
-  (if (or (symbolp (car body))
-          (and (listp (car body))
-               (memq (caar body) '(lambda function quote))))
-      `(once-x-call ,condition ,@body)
-    `(once-x-call ,condition (lambda () ,@body))))
+  (if (once--wrap-with-lambda-p (car body))
+      `(once-x-call ,condition (lambda () ,@body))
+    `(once-x-call ,condition ,@body)))
 
 (defun once-x-require (condition &rest packages)
   "Once CONDITION is met the first time, require PACKAGES."
@@ -657,5 +653,4 @@ See `once-x-call' for more information, including how to specify CONDITION."
     (once-x-call condition require-fun)))
 
 (provide 'once)
-;; LocalWords: arg args satch el uninterned init magit newval
 ;;; once.el ends here

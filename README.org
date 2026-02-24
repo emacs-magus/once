@@ -199,13 +199,14 @@ With =use-package=, the mode to run can be inferred:
   (require 'once-conditions)
   (setq once-shorthand t))
 
+;; once-use-package must be separately installed
 (use-package once-use-package
   :init
   (eval-and-compile
     ;; must set before loading
-    (setq once-use-package-aliases
-          '(":once-x-require" ":require-once"
-            ":once-require-incrementally" ":require-incrementally")))
+    (setq once-use-package-keyword-aliases
+          '(:once-x-require :require-once
+            :once-require-incrementally :require-incrementally)))
   (require 'once-use-package))
 #+end_src
 
@@ -218,12 +219,13 @@ With =use-package=, the mode to run can be inferred:
   (:require once once-conditions)
   (setq once-shorthand t))
 
+;; once-setup must be separately installed
 (setup (:package once-setup)
   (eval-and-compile
     ;; must set before loading
     (setq once-setup-keyword-aliases
-          '(":once-x-require" ":require-once"
-            ":once-require-incrementally" ":require-incrementally")))
+          '(:once-x-require :require-once
+            :once-require-incrementally :require-incrementally)))
   (:require once-setup))
 #+end_src
 
@@ -336,7 +338,7 @@ Unlike ~satch-add-hook~ and ~satch-advice-add~ (from [[https://github.com/emacs-
 :PROPERTIES:
 :CUSTOM_ID: use-package-once
 :END:
-=:once= is a use-package keyword that just takes a ~once~ argument list:
+=:once= is a use-package keyword that just takes ~once~ argument lists:
 #+begin_src emacs-lisp
 (require 'once-conditions)
 
@@ -361,9 +363,10 @@ You can specify as many argument lists as you want to:
   ('baz-hook #'foo2-mode))
 #+end_src
 
-When ~once-shorthand~ is non-nil, you can use shorthand to infer a function (i.e. the minor mode to enable):
+You can also specify just the condition instead of a full argument list if it is a variable or shorthand.  The function to run will be inferred from the package name in this case (i.e. run =<package>-mode=).
 #+begin_src emacs-lisp
-;; enable `which-key-mode' on the first input
+;; `once-shorthand' must be enabled for examples that do not use variables
+;; same as (once 'pre-command-hook #'which-key-mode)
 (use-package which-key
   :once 'pre-command-hook)
 ;; or
@@ -378,12 +381,29 @@ When ~once-shorthand~ is non-nil, you can use shorthand to infer a function (i.e
   :once "magit")
 #+end_src
 
-Note that any list (other than =(quote some-hook)= or =(function some-function)=) will considered to be an argument list.  You cannot do this:
+The function to run will also be inferred from the package name if the argument list is incomplete (only has the condition).  When you want to specify multiple functions to run, you can also use =t= or =nil= as a placeholder (either will be replaced with the inferred mode name):
+ #+begin_src emacs-lisp
+(require 'once-conditions)
+;; same as (once once-input #'which-key-mode)
+(use-package which-key
+  :once (once-input))
+
+;; enable multiple minor modes; replace t with #'foo-mode
+(use-package foo
+  :once (once-input t #'foo-2-mode))
+
+;; keywords support both t and nil as placeholders since either can make sense;
+;; nil is used to not specify an argument so that it is automatically filled; t
+;; makes more sense in a case like :require-incrementally t
+(use-package foo
+  :once (once-input nil #'foo-2-mode))
+ #+end_src
+
+Note that any list (other than =(quote some-hook)= or =(function some-function)=) will be considered to be an argument list.  You cannot do this:
 #+begin_src emacs-lisp
 ;; WRONG!
 (use-package editorconfig
   :once (some-function-that-generates-a-condition-list))
-
 
 ;; Ok
 (use-package editorconfig
@@ -439,6 +459,18 @@ The benefit over just using ~(once ...)~ is that when ~once-shorthand~ is non-ni
 (setup (:package magit-todos)
   (:once "magit"))
 #+end_src
+
+=t= and =nil= can be used as placeholders that will be replaced with the inferred mode name:
+ #+begin_src emacs-lisp
+(setup (:package foo)
+  (:once once-input t #'foo-2-mode))
+
+;; keywords support both t and nil as placeholders since either can make sense;
+;; nil is used to not specify an argument so that it is automatically filled; t
+;; makes more sense in a case like (:require-incrementally t)
+(setup (:package foo)
+  (:once once-input nil #'foo-2-mode))
+ #+end_src
 
 *** Condition System Details
 :PROPERTIES:
@@ -604,7 +636,7 @@ Any number of features to require can be specified:
 :PROPERTIES:
 :CUSTOM_ID: use-package-once-x-require--require-once
 :END:
-It is recommend you alias =:once-x-require= to =:require-once= using =once-use-package-aliases=.
+It is recommend you alias =:once-x-require= to =:require-once= using =once-use-package-keyword-aliases=.
 
 The keyword takes any number of ~once-x-require~ argument lists:
 #+begin_src emacs-lisp
@@ -634,13 +666,30 @@ The benefit over using ~once-x-require~ directly is that the package to require 
 #+end_src
 
 The same caveat as for =:once= applies.  All lists (except a quoted symbol or function) are considered argument lists, so this is invalid:
+ #+begin_src emacs-lisp
+;; WRONG!
+(use-package forge
+  :require-once (some-function-that-generates-a-condition-list))
 
-You can use =nil= in place of the package name if you want to additionally require some other extension:
+;; Ok
+(use-package forge
+  :require-once ((some-function-that-generates-a-condition-list)))
+ #+end_src
+
+You can use =t= or =nil= as a placeholder for the inferred package name if you want to additionally require some other extension:
 #+begin_src emacs-lisp
 (use-package foo
   :require-once condition
   :require-once (condition 'foo-extension))
+;; or
+(use-package foo
+  :require-once
+  condition
+  (condition 'foo-extension))
 ;; or just
+(use-package foo
+  :require-once (condition t 'foo-extension ...))
+;; or
 (use-package foo
   :require-once (condition nil 'foo-extension ...))
 #+end_src
@@ -675,12 +724,15 @@ The benefit over using ~once-x-require~ directly is that the package to require 
   (:require-once "magit"))
 #+end_src
 
-You can use =nil= in place of the package name if you want to additionally require some other extension:
+You can use =t= or =nil= as a placeholder for the inferred package name if you want to additionally require some other extension:
 #+begin_src emacs-lisp
 (setup (:package foo)
   (:require-once condition)
   (:require-once condition 'foo-extension))
 ;; or just
+(setup (:package foo)
+  (:require-once condition t 'foo-extension ...))
+;; or
 (setup (:package foo)
   (:require-once condition nil 'foo-extension ...))
 #+end_src
@@ -792,17 +844,124 @@ This condition is similar to ~once-file~ but only activates in a writable buffer
 :END:
 This condition is similar to ~once-file~ but only activates in a writable buffer when entering an evil "insert" state.  Which states are considered insert states can be changed by customizing =once-evil-insert-states= (insert and emacs by default).
 
-** ~once-require-incrementally~
+** ~once-incrementally~, ~once-call-incrementally~, and ~once-require-incrementally~
 :PROPERTIES:
 :CUSTOM_ID: once-require-incrementally
 :END:
-Not yet implemented.
+
+These helpers are inspired by Doom's =:defer-incrementally= use-package keyword which allows you to defer packages to be loaded during idle time after startup.  This is useful when there is not some better specific condition to load a package and you don't need it immediately.  It can also help incrementally load large packages that have a lot of dependencies like org mode.  Unlike using ~run-with-idle-timer~ directly, this process spreads out loading the packages.
+
+The ~once-idle-timer~ variable controls how long to wait after startup to begin the incremental loading process (or how long after a user input to continue it).  When it is set to 0, all code will run immediately after startup.  When it is set to nil, no code will ever run.  ~once-incremental-run-interval~ specifies the time to wait in between each incremental run/load.  Any user input during this time period will cancel loading until the next period of idle time.
+
+To set up incremental loading, you should run ~once-enable-incremental-loading~ somewhere in your init file.  This will enable incremental loading after startup.
+ #+begin_src emacs-lisp
+(require 'once-incrementally)
+(once-enable-incremental-loading)
+ #+end_src
+
+~once-incrementally~ is the base function used to run code incrementally.  Unlike Doom's =:defer-incrementally=, it can run arbitrary functions and also supports adding code to run at a specific "depth" (priority).  The default behavior is to run code in the order it was deferred, but a depth of -90, for example, could be given to prioritize some code to run first (see the documentation for ~add-hook~ for more information on depth).
+
+ #+begin_src emacs-lisp
+;; load `org-mode' incrementally
+(once-incrementally
+  :features
+  'calendar 'find-func 'format-spec 'org-macs 'org-compat 'org-faces
+  'org-entities 'org-list 'org-pcomplete 'org-src 'org-footnote 'org-macro 'ob
+  'org 'org-agenda 'org-capture)
+;; run some code after that
+(once-incrementally :functions #'my-post-idle-setup)
+;; load `ligature' first
+(once-incrementally -90 :features 'ligature)
+ #+end_src
+
+Numbers apply a depth to everything after.  The default depth is 90.  Depths and the =:features= or =:functions= keywords can be specified multiple times.
+
+You generally will not use ~once-incrementally~ directly.  You'll probably use ~once-call-incrementally~ or ~once-require-incrementally~ instead.  If you don't like their syntax, you can build your own macro on top of ~once-incrementally~.
+
+~once-require-incrementally~ works like ~once-incrementally~ but only supports unquoted features.
+ #+begin_src emacs-lisp
+;; incrementally load `org-mode'
+(once-require-incrementally
+  calendar find-func format-spec org-macs org-compat org-faces org-entities
+  org-list org-pcomplete org-src org-footnote org-macro ob org org-agenda
+  org-capture)
+;; load `ligature' first
+(once-require-incrementally -90 ligature)
+ #+end_src
+
+~once-call-incrementally~ is somewhat similar to ~once~ in that it will automatically wrap forms in lambdas.
+ #+begin_src emacs-lisp
+(defun my-idle-setup ()
+  (foo)
+  (bar)
+  (baz))
+
+(once-call-incrementally #'my-idle-setup #'qux)
+
+;; can also do
+(once-call-incrementally
+  (foo)
+  (bar)
+  (baz)
+  (qux))
+
+;; can mix and match and include depths
+(once-call-incrementally
+  10
+  (foo)
+  (bar)
+  #'baz
+  30
+  (qux))
+ #+end_src
 
 *** Use-package =:once-require-incrementally= / =:require-incrementally=
 :PROPERTIES:
 :CUSTOM_ID: use-package-once-require-incrementally--require-incrementally
 :END:
+
+The =:require-incrementally= keyword is comparable to Doom's =:defer-incrementally=.  It takes any number of ~once-require-incrementally~ argument lists:
+ #+begin_src emacs-lisp
+(use-package recentf
+  :require-incrementally (easymenu tree-widget timer recentf))
+(use-package recentf
+  :require-incrementally
+  (easymenu tree-widget timer)
+  (recentf))
+ #+end_src
+
+Lists are not required:
+ #+begin_src emacs-lisp
+(use-package recentf
+  :require-incrementally easymenu tree-widget timer recentf)
+ #+end_src
+
+It supports replacing =t= or =nil= with the package name:
+ #+begin_src emacs-lisp
+;; (once-require-incrementally whitespace)
+(use-package whitespace
+  :require-incrementally t)
+ #+end_src
+
+Unlike =:defer-incrementally=, it will not currently automatically add the package name to the list if a placeholder is not specified.  The reason for this is that I thought it might be too much magic (possibly there is some case where you would not want the package to be added).  If you want this functionality, feel free to open an issue.
+
 *** Setup.el  =:once-require-incrementally= / =:require-incrementally=
 :PROPERTIES:
 :CUSTOM_ID: setupel--once-require-incrementally--require-incrementally
 :END:
+
+The =:require-incrementally= setup.el keyword takes a ~once-require-incrementally~ arglist:
+ #+begin_src emacs-lisp
+(setup (:package recentf)
+  (:require-incrementally easymenu tree-widget timer recentf))
+ #+end_src
+
+It supports replacing =t=, =nil=, or an empty argument list with the package name:
+ #+begin_src emacs-lisp
+;; (once-require-incrementally whitespace)
+(setup (:package recentf)
+  (:require-incrementally t))
+;; or just
+(setup (:package recentf)
+  (:require-incrementally))
+ #+end_src

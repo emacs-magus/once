@@ -1,4 +1,4 @@
-;;; test-once-dummy.el --- For testing after package load execute.
+;;; test-once-dummy.el --- For testing after package load execute. -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;;; Code:
 

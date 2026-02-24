@@ -1,6 +1,6 @@
 ;;; test-once.el --- Tests for once.el -*- lexical-binding: t; -*-
 
-;; Package-Requires: ((emacs "26.1") (buttercup "1.25")) (undercover "0.8.0"))
+;; Package-Requires: ((emacs "26.1") (buttercup "1.38")) (undercover "0.8.0"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -24,14 +24,11 @@
 
 ;;; Code:
 ;; * Setup
-(when (require 'undercover nil t)
-  (undercover "*.el"
-              (:exclude "test-*.el")
-              (:report-format 'codecov)
-              (:send-report nil)))
+(load-file "./tests/undercover-init.el")
 
 (require 'buttercup)
 (require 'once)
+(require 'once-incrementally)
 
 (setq once-shorthand t)
 
@@ -52,6 +49,25 @@
 (defun test-once-advised-p (fun)
   "Return whether FUN has advice."
   (advice--p (advice--symbol-function fun)))
+
+(defun test-once-incf-counter ()
+  "Increment `test-once-counter'."
+  (cl-incf test-once-counter))
+
+(defun test-once-run-idle-timers ()
+  "Run all idle timers (from `timer-idle-list').
+This is `ert-run-idle-timers'"
+  (dolist (timer (copy-sequence timer-idle-list))
+    (timer-event-handler timer)))
+
+(defun test-once-run-timers ()
+  "Run all timers (from `timer-list')."
+  (dolist (timer (copy-sequence timer-list))
+    (timer-event-handler timer)))
+
+(defun test-once-throw-error ()
+  "Throw an error."
+  (error "Oh no"))
 
 ;; * once-eval-after-load
 (describe "eval-after-load"
@@ -788,24 +804,27 @@
 
 ;; * once
 (describe "once"
-  (describe "should expand to once-x-call when the first function argument"
+  (describe "should expand to once-x-call as-is when the first function argument"
     (it "is a sharp-quoted symbol"
       (expect (macroexpand-1 '(once condition #'foo #'bar))
-              :to-equal '(once-x-call condition #'foo #'bar)))
+              :to-equal '(once-x-call condition #'foo #'bar))
+      (expect (macroexpand-1 '(once condition (function foo) #'bar))
+              :to-equal '(once-x-call condition (function foo) #'bar)))
     (it "is a quoted symbol"
       (expect (macroexpand-1 '(once condition 'foo #'bar))
-              :to-equal '(once-x-call condition 'foo #'bar)))
+              :to-equal '(once-x-call condition 'foo #'bar))
+      (expect (macroexpand-1 '(once condition (quote foo) #'bar))
+              :to-equal '(once-x-call condition (quote foo) #'bar)))
     (it "is an unquoted symbol (possible variable)"
       (expect (macroexpand-1 '(once condition fun-in-var #'bar))
               :to-equal '(once-x-call condition fun-in-var #'bar)))
     (it "is a lambda"
       (expect (macroexpand-1 '(once condition (lambda nil) #'bar))
               :to-equal '(once-x-call condition (lambda nil) #'bar))))
-  (describe "should expand to once-x-call when the first function argument"
-    (it "is a form/list"
+  (describe "should wrap the body in a lambda when the first function argument"
+    (it "is a any other list"
       (expect (macroexpand-1 '(once condition (foo) (bar)))
               :to-equal '(once-x-call condition
-
                            (lambda nil (foo) (bar)))))))
 
 ;; * once-x-require
@@ -836,5 +855,217 @@
     (expect (featurep 'test-once-dummy))
     (expect (featurep 'test-once-dummy-too))
     (expect test-once-hook :to-be nil)))
+
+;; * once-incrementally
+(defun test-once-fake-idle-time ()
+  "Return 10."
+  10)
+
+(describe "once-incrementally"
+  (before-each
+    (advice-add 'current-idle-time :override #'test-once-fake-idle-time)
+    (setq once--incremental-code nil
+          test-once-counter 0)
+    (when (featurep 'test-once-dummy)
+      (unload-feature 'test-once-dummy)))
+  (after-each
+    (advice-remove 'current-idle-time #'test-once-fake-idle-time))
+  (it "should support adding functions to once--incremental-code"
+    (once-incrementally :functions #'test-once-incf-counter)
+    (expect once--incremental-code
+            :to-equal '((:function test-once-incf-counter))))
+  (it "should support adding features to once--incremental-code"
+    (once-incrementally :features 'foo)
+    (expect once--incremental-code
+            :to-equal '((:feature foo))))
+  (it "should append by default"
+    (once-incrementally :features 'foo)
+    (once-incrementally :features 'bar)
+    (expect once--incremental-code
+            :to-equal '((:feature foo) (:feature bar))))
+  (it "should support a manually specified depth"
+    (once-incrementally :features 'foo)
+    (once-incrementally 0 :features 'bar)
+    (once-incrementally :features -10 'baz)
+    (expect once--incremental-code
+            :to-equal '((:feature baz) (:feature bar) (:feature foo))))
+  (it "should support adding multiple entries at once"
+    (once-incrementally :features 'foo 'bar)
+    (expect once--incremental-code
+            :to-equal '((:feature foo) (:feature bar))))
+  (it "should support mixing depths, features, and functions"
+    (once-incrementally :features 'foo :functions 'bar 'baz 0 :features 'qux)
+    (expect once--incremental-code
+            :to-equal
+            '((:feature qux) (:feature foo) (:function bar) (:function baz))))
+  (it "should run functions during idle time"
+    (once-incrementally :functions #'test-once-incf-counter)
+    (once--begin-incremental-loading)
+    (expect once--incremental-code
+            :to-equal '((:function test-once-incf-counter)))
+    (expect test-once-counter :to-be 0)
+    (test-once-run-idle-timers)
+    (expect once--incremental-code :to-be nil)
+    (expect test-once-counter :to-be 1))
+  (it "should require features during idle time"
+    (once-incrementally :features 'test-once-dummy)
+    (once--begin-incremental-loading)
+    (expect once--incremental-code
+            :to-equal '((:feature test-once-dummy)))
+    (expect (not (featurep 'test-once-dummy)))
+    (test-once-run-idle-timers)
+    (expect once--incremental-code :to-be nil)
+    (expect (featurep 'test-once-dummy)))
+  (it "should add back code when interrupted before running it"
+    (once-incrementally :features 'test-once-dummy)
+    (once--begin-incremental-loading)
+    (expect once--incremental-code
+            :to-equal '((:feature test-once-dummy)))
+    (expect (not (featurep 'test-once-dummy)))
+    (advice-remove 'current-idle-time #'test-once-fake-idle-time)
+    (test-once-run-idle-timers)
+    (expect once--incremental-code
+            :to-equal '((:feature test-once-dummy))))
+  (it "should automatically schedule the next piece of code to run"
+    (once-incrementally :functions #'test-once-incf-counter
+                        :features 'test-once-dummy)
+    (once--begin-incremental-loading)
+    (expect once--incremental-code
+            :to-equal '((:function test-once-incf-counter)
+                        (:feature test-once-dummy)))
+    (expect test-once-counter :to-be 0)
+    (expect (not (featurep 'test-once-dummy)))
+
+    (test-once-run-idle-timers)
+    (expect once--incremental-code
+            :to-equal '((:feature test-once-dummy)))
+    (expect test-once-counter :to-be 1)
+    (expect (not (featurep 'test-once-dummy)))
+
+    (test-once-run-timers)
+    (expect once--incremental-code :to-be nil)
+    (expect (featurep 'test-once-dummy)))
+  (it "should skip code that errors and continue"
+    (once-incrementally :functions #'test-once-throw-error
+                        :features 'test-once-dummy)
+    (once--begin-incremental-loading)
+    (expect once--incremental-code
+            :to-equal '((:function test-once-throw-error)
+                        (:feature test-once-dummy)))
+    (expect (not (featurep 'test-once-dummy)))
+
+    (test-once-run-idle-timers)
+    (expect once--incremental-code
+            :to-equal '((:feature test-once-dummy)))
+    (expect (not (featurep 'test-once-dummy)))
+
+    (test-once-run-timers)
+    (expect once--incremental-code :to-be nil)
+    (expect (featurep 'test-once-dummy)))
+  (it "should skip code that errors and continue when running immediately"
+    (let ((once-idle-timer 0))
+      (once-incrementally :functions #'test-once-throw-error
+                          :features 'test-once-dummy)
+      (expect once--incremental-code
+              :to-equal '((:function test-once-throw-error)
+                          (:feature test-once-dummy)))
+      (expect (not (featurep 'test-once-dummy)))
+      (once--begin-incremental-loading)
+      (expect once--incremental-code :to-be nil)
+      (expect (featurep 'test-once-dummy))))
+  (it "should format error messages with condition type and message"
+    (let ((once-idle-timer 0)
+          (test-once-error-message nil))
+      (once-incrementally :functions #'test-once-throw-error)
+      (cl-letf (((symbol-function 'message)
+                 (lambda (format-string &rest args)
+                   (when (string-match-p "once.el failed to run" format-string)
+                     (setq test-once-error-message
+                           (apply #'format format-string args))))))
+        (once--begin-incremental-loading))
+      (expect test-once-error-message :not :to-be nil)
+      (expect test-once-error-message
+              :to-match
+              "because: error - Oh no")))
+  (it "should do nothing when once-idle-timer is nil"
+    (let (once-idle-timer)
+      (once-incrementally :functions #'test-once-incf-counter)
+      (once--begin-incremental-loading)
+      (expect once--incremental-code
+              :to-equal '((:function test-once-incf-counter)))
+      (expect test-once-counter :to-be 0)
+      (test-once-run-idle-timers)
+      (expect once--incremental-code
+              :to-equal '((:function test-once-incf-counter)))
+      (expect test-once-counter :to-be 0)))
+  (it "should run all code immediately when once-idle-timer is 0"
+    (let ((once-idle-timer 0))
+      (once-incrementally :functions #'test-once-incf-counter)
+      (expect once--incremental-code
+              :to-equal '((:function test-once-incf-counter)))
+      (expect test-once-counter :to-be 0)
+      (once--begin-incremental-loading)
+      (expect once--incremental-code
+              :to-equal nil)
+      (expect test-once-counter :to-be 1)))
+  (it "should error when first non-depth entry is not :features or :functions"
+    (expect (once-incrementally 'foo)
+            :to-throw 'user-error
+            '("First non-depth entry must be :features or :functions before foo")))
+  (it "should error when entry after depth is not :features or :functions"
+    (expect (once-incrementally 10 'foo)
+            :to-throw 'user-error
+            '("First non-depth entry must be :features or :functions before foo"))))
+
+;; * once-call-incrementally
+(describe "once-call-incrementally"
+  (describe "should expand to once-incrementally as-is when the first argument"
+    (it "is a sharp-quoted symbol"
+      (expect (macroexpand-1 '(once-call-incrementally #'foo))
+              :to-equal '(once-incrementally :functions #'foo))
+      (expect (macroexpand-1 '(once-call-incrementally (function foo)))
+              :to-equal '(once-incrementally :functions (function foo))))
+    (it "is a quoted symbol"
+      (expect (macroexpand-1 '(once-call-incrementally 'foo))
+              :to-equal '(once-incrementally :functions 'foo))
+      (expect (macroexpand-1 '(once-call-incrementally (quote foo)))
+              :to-equal '(once-incrementally :functions (quote foo))))
+    (it "is an unquoted symbol (variable containing function)"
+      (expect (macroexpand-1 '(once-call-incrementally fun-in-var))
+              :to-equal '(once-incrementally :functions fun-in-var)))
+    (it "is a lambda"
+      (expect (macroexpand-1 '(once-call-incrementally (lambda nil)))
+              :to-equal '(once-incrementally :functions (lambda nil)))))
+  (it "should wrap the body in a lambda when the argument is a any other list"
+    (expect (macroexpand-1 '(once-call-incrementally (foo)))
+            :to-equal '(once-incrementally :functions (lambda nil (foo)))))
+  (it "should correctly handle a mix of depths, functions, and forms"
+    (expect (macroexpand-1 '(once-call-incrementally (foo) 10 #'bar (baz) (qux)))
+            :to-equal '(once-incrementally
+                        :functions
+                        (lambda nil (foo))
+                        10
+                        #'bar
+                        (lambda nil (baz) (qux))))
+    (expect (macroexpand-1 '(once-call-incrementally
+                              10 20 (foo) #'bar (baz) (qux) corge 30 'thud
+                              (lambda ())))
+            :to-equal '(once-incrementally
+                        :functions
+                        10
+                        20
+                        (lambda nil (foo))
+                        #'bar
+                        (lambda nil (baz) (qux))
+                        corge
+                        30
+                        'thud
+                        (lambda nil)))))
+
+;; * once-require-incrementally
+(describe "once-require-incrementally"
+  (it "should expand to once-incrementally, quoting all arguments"
+    (expect (macroexpand-1 '(once-require-incrementally 10 foo bar 20 baz qux))
+            :to-equal '(once-incrementally :features '10 'foo 'bar '20 'baz 'qux))))
 
 ;;; test-once.el ends here

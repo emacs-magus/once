@@ -49,7 +49,7 @@ Provided Utilities
 
 * @code{eval-after-load} Alternatives::
 * Once Only Deferred Evaluation::
-* @code{once-require-incrementally}::
+* @code{once-incrementally}, @code{once-call-incrementally}, and @code{once-require-incrementally}: @code{once-incrementally} @code{once-call-incrementally} and @code{once-require-incrementally}. 
 
 Once Only Deferred Evaluation
 
@@ -61,7 +61,7 @@ Once Only Deferred Evaluation
 * @samp{require-after}, @samp{once-call}, etc.: @samp{require-after} @samp{once-call} etc. 
 * Pre-defined Conditions::
 
-@code{once-require-incrementally}
+@code{once-incrementally}, @code{once-call-incrementally}, and @code{once-require-incrementally}
 
 * Use-package @samp{once-require-incrementally} / @samp{require-incrementally}::
 * Setup.el  @samp{once-require-incrementally} / @samp{require-incrementally}: Setupel @samp{once-require-incrementally} / @samp{require-incrementally}. 
@@ -120,7 +120,7 @@ With @samp{use-package}, the mode to run can be inferred:
 ;; OR for a more meaningful name
 (require 'once-conditions)
 (use-package savehist
-  :defer-incrementally custom
+  :require-incrementally custom
   :once once-input)
 @end lisp
 
@@ -219,13 +219,14 @@ With @samp{use-package}, the mode to run can be inferred:
   (require 'once-conditions)
   (setq once-shorthand t))
 
+;; once-use-package must be separately installed
 (use-package once-use-package
   :init
   (eval-and-compile
     ;; must set before loading
-    (setq once-use-package-aliases
-          '(":once-x-require" ":require-once"
-            ":once-require-incrementally" ":require-incrementally")))
+    (setq once-use-package-keyword-aliases
+          '(:once-x-require :require-once
+            :once-require-incrementally :require-incrementally)))
   (require 'once-use-package))
 @end lisp
 
@@ -237,12 +238,13 @@ With @samp{use-package}, the mode to run can be inferred:
   (:require once once-conditions)
   (setq once-shorthand t))
 
+;; once-setup must be separately installed
 (setup (:package once-setup)
   (eval-and-compile
     ;; must set before loading
-    (setq once-setup-aliases
-          '(":once-x-require" ":require-once"
-            ":once-require-incrementally" ":require-incrementally")))
+    (setq once-setup-keyword-aliases
+          '(:once-x-require :require-once
+            :once-require-incrementally :require-incrementally)))
   (:require once-setup))
 @end lisp
 
@@ -259,7 +261,7 @@ Also note that compiling your init file is not generally recommended, and if you
 @menu
 * @code{eval-after-load} Alternatives::
 * Once Only Deferred Evaluation::
-* @code{once-require-incrementally}::
+* @code{once-incrementally}, @code{once-call-incrementally}, and @code{once-require-incrementally}: @code{once-incrementally} @code{once-call-incrementally} and @code{once-require-incrementally}. 
 @end menu
 
 @node @code{eval-after-load} Alternatives
@@ -271,7 +273,7 @@ The functional difference is that with @code{eval-after-load}, the given form wi
 
 If for whatever reason you do need the original behavior for some situation, just keep using @code{eval-after-load}.  These alternatives are mainly provided for consistency with @code{once} (run some code @emph{only once}) and because I already had to implement the underlying functionality for @code{once}.
 
-@code{-once-with-eval-after-load} is aliased to @code{once-with}.  If you have a lot of configuration for a particular package and want to split it up (especially in an org configuration if you want to split package configuration between multiple headings), you can use @code{use-package} for the initial setup and use @code{once-with} afterwards.
+@code{once-with-eval-after-load} is aliased to @code{once-with}.  If you have a lot of configuration for a particular package and want to split it up (especially in an org configuration if you want to split package configuration between multiple headings), you can use @code{use-package} for the initial setup and use @code{once-with} afterwards.
 
 @lisp
 (use-package foo)
@@ -370,7 +372,7 @@ Unlike @code{satch-add-hook} and @code{satch-advice-add} (from @uref{https://git
 @anchor{Use-package @samp{once}}Use-package @samp{:once}
 
 
-@samp{:once} is a use-package keyword that just takes a @code{once} argument list:
+@samp{:once} is a use-package keyword that just takes @code{once} argument lists:
 @lisp
 (require 'once-conditions)
 
@@ -395,9 +397,10 @@ You can specify as many argument lists as you want to:
   ('baz-hook #'foo2-mode))
 @end lisp
 
-When @code{once-shorthand} is non-nil, you can use shorthand to infer a function (i.e. the minor mode to enable):
+You can also specify just the condition instead of a full argument list if it is a variable or shorthand.  The function to run will be inferred from the package name in this case (i.e. run @samp{<package>-mode}).
 @lisp
-;; enable `which-key-mode' on the first input
+;; `once-shorthand' must be enabled for examples that do not use variables
+;; same as (once 'pre-command-hook #'which-key-mode)
 (use-package which-key
   :once 'pre-command-hook)
 ;; or
@@ -412,12 +415,29 @@ When @code{once-shorthand} is non-nil, you can use shorthand to infer a function
   :once "magit")
 @end lisp
 
-Note that any list (other than @samp{(quote some-hook)} or @samp{(function some-function)}) will considered to be an argument list.  You cannot do this:
+The function to run will also be inferred from the package name if the argument list is incomplete (only has the condition).  When you want to specify multiple functions to run, you can also use @samp{t} or @samp{nil} as a placeholder (either will be replaced with the inferred mode name):
+@lisp
+(require 'once-conditions)
+;; same as (once once-input #'which-key-mode)
+(use-package which-key
+  :once (once-input))
+
+;; enable multiple minor modes; replace t with #'foo-mode
+(use-package foo
+  :once (once-input t #'foo-2-mode))
+
+;; keywords support both t and nil as placeholders since either can make sense;
+;; nil is used to not specify an argument so that it is automatically filled; t
+;; makes more sense in a case like :require-incrementally t
+(use-package foo
+  :once (once-input nil #'foo-2-mode))
+@end lisp
+
+Note that any list (other than @samp{(quote some-hook)} or @samp{(function some-function)}) will be considered to be an argument list.  You cannot do this:
 @lisp
 ;; WRONG!
 (use-package editorconfig
   :once (some-function-that-generates-a-condition-list))
-
 
 ;; Ok
 (use-package editorconfig
@@ -473,19 +493,31 @@ The benefit over just using @code{(once ...)} is that when @code{once-shorthand}
 (setup (:package magit-todos)
   (:once "magit"))
 @end lisp
+
+@samp{t} and @samp{nil} can be used as placeholders that will be replaced with the inferred mode name:
+@lisp
+(setup (:package foo)
+  (:once once-input t #'foo-2-mode))
+
+;; keywords support both t and nil as placeholders since either can make sense;
+;; nil is used to not specify an argument so that it is automatically filled; t
+;; makes more sense in a case like (:require-incrementally t)
+(setup (:package foo)
+  (:once once-input nil #'foo-2-mode))
+@end lisp
 @end enumerate
 
 @node Condition System Details
 @subsection Condition System Details
 
-At least one of @samp{:hooks}, @samp{:packages}, and the advice keywords should be specified.  When more than one is specified, any of them can trigger the condition (the behavior is OR not AND).  The check keywords are optional.
+At least one of @samp{:hooks}, @samp{:packages} (a.k.a. @samp{:files}), @samp{:variables} (a.k.a. @samp{:vars}), or the advice keywords should be specified.  When more than one is specified, any of them can trigger the condition (the behavior is OR not AND).  The check keywords are optional.
 
 @enumerate
 @item
 @anchor{@samp{hooks}}@samp{:hooks}
 
 
-@samp{:hooks} should be 1+ hooks that can trigger the functions to run.
+@samp{:hooks} should be 1+ hooks that can trigger the function(s) to run.
 
 @lisp
 ;; call `cl-lib-highlight-initialize' the first time `emacs-lisp-mode-hook' runs
@@ -498,7 +530,7 @@ At least one of @samp{:hooks}, @samp{:packages}, and the advice keywords should 
 @anchor{@samp{packages}}@samp{:packages}
 
 
-@samp{:packages} should be 1+ packages that can trigger the functions to run when loaded.
+@samp{:packages} (or @samp{:files}, which is an alias) should be 1+ files or features (i.e. either a string or symbol just like the FILE argument to @code{eval-after-load}) that can trigger the function(s) to run when loaded.
 
 @lisp
 ;; load yasnippet-snippets as soon as yasnippet is loaded
@@ -521,6 +553,12 @@ Any WHERE keyword (e.g. @samp{:before}) can be used to specify advice:
 ;; or if `once-shorthand' is enabled
 (once #'after-find-file #'global-hardhat-mode)
 @end lisp
+
+@item
+@anchor{@samp{variables}}@samp{:variables}
+
+
+@samp{:variables} (or @samp{:vars}, which is an alias) should be 1+ variables that can trigger the function(s) to run when set.  @ref{Local Checks, , Local checks} can be used to only trigger the function(s) when a variable is set to a specific value.
 
 @item
 @anchor{@samp{check}}@samp{:check}
@@ -570,7 +608,7 @@ Having checks for individual triggers is also possible:
       :packages (list 'evil #'yet-another-check) 'no-check-package)
 @end lisp
 
-Unlike @samp{:check} and @samp{:initial-check}, local checks are passed the arguments the hook (in the case of @code{run-hook-with-args}) or advised symbol was run with.  Packages can take a local check, but it won't be passed any arguments and may not be useful.
+Unlike @samp{:check} and @samp{:initial-check}, local checks are passed the arguments the hook (in the case of @code{run-hook-with-args}) or advised symbol was run with.  For @samp{:variables}, the local check is passed the arguments @samp{SYMBOL NEWVAL OPERATION WHERE} (just like the arguments to @samp{WATCH-FUNCTION} for @code{add-variable-watcher}).  Packages can take a local check, but it won't be passed any arguments and may not be useful.
 
 Local checks allow mimicking the behavior of @code{evil-delay} and Doom's @code{defer-until!}.
 @lisp
@@ -594,7 +632,7 @@ It is generally recommended that you store more complex conditions in a reusable
 The type will be inferred as follows:
 @itemize
 @item
-Packages must be specified as strings (files name not feature name)
+Packages must be specified as strings (file name not feature name)
 @item
 Hooks must be symbols ending in @samp{-hook} or @samp{-functions}
 @item
@@ -636,7 +674,7 @@ Any number of features to require can be specified:
 @anchor{Use-package @samp{once-x-require} / @samp{require-once}}Use-package @samp{:once-x-require} / @samp{:require-once}
 
 
-It is recommend you alias @samp{:once-x-require} to @samp{:require-once} using @samp{once-use-package-aliases}.
+It is recommend you alias @samp{:once-x-require} to @samp{:require-once} using @samp{once-use-package-keyword-aliases}.
 
 The keyword takes any number of @code{once-x-require} argument lists:
 @lisp
@@ -666,13 +704,30 @@ The benefit over using @code{once-x-require} directly is that the package to req
 @end lisp
 
 The same caveat as for @samp{:once} applies.  All lists (except a quoted symbol or function) are considered argument lists, so this is invalid:
+@lisp
+;; WRONG!
+(use-package forge
+  :require-once (some-function-that-generates-a-condition-list))
 
-You can use @samp{nil} in place of the package name if you want to additionally require some other extension:
+;; Ok
+(use-package forge
+  :require-once ((some-function-that-generates-a-condition-list)))
+@end lisp
+
+You can use @samp{t} or @samp{nil} as a placeholder for the inferred package name if you want to additionally require some other extension:
 @lisp
 (use-package foo
   :require-once condition
   :require-once (condition 'foo-extension))
+;; or
+(use-package foo
+  :require-once
+  condition
+  (condition 'foo-extension))
 ;; or just
+(use-package foo
+  :require-once (condition t 'foo-extension ...))
+;; or
 (use-package foo
   :require-once (condition nil 'foo-extension ...))
 @end lisp
@@ -681,7 +736,7 @@ You can use @samp{nil} in place of the package name if you want to additionally 
 @anchor{Setupel @samp{once-x-require} / @samp{require-once}}Setup.el @samp{:once-x-require} / @samp{:require-once}
 
 
-It is recommend you alias @samp{:once-x-require} to @samp{:require-once} using @samp{once-setup-aliases}.
+It is recommend you alias @samp{:once-x-require} to @samp{:require-once} using @samp{once-setup-keyword-aliases}.
 
 The keyword takes any number of @code{once-x-require} argument lists:
 @lisp
@@ -707,12 +762,15 @@ The benefit over using @code{once-x-require} directly is that the package to req
   (:require-once "magit"))
 @end lisp
 
-You can use @samp{nil} in place of the package name if you want to additionally require some other extension:
+You can use @samp{t} or @samp{nil} as a placeholder for the inferred package name if you want to additionally require some other extension:
 @lisp
 (setup (:package foo)
   (:require-once condition)
   (:require-once condition 'foo-extension))
 ;; or just
+(setup (:package foo)
+  (:require-once condition t 'foo-extension ...))
+;; or
 (setup (:package foo)
   (:require-once condition nil 'foo-extension ...))
 @end lisp
@@ -825,10 +883,74 @@ This condition is similar to @code{once-file} but only activates in a writable b
 This condition is similar to @code{once-file} but only activates in a writable buffer when entering an evil "insert" state.  Which states are considered insert states can be changed by customizing @samp{once-evil-insert-states} (insert and emacs by default).
 @end enumerate
 
-@node @code{once-require-incrementally}
-@section @code{once-require-incrementally}
+@node @code{once-incrementally} @code{once-call-incrementally} and @code{once-require-incrementally}
+@section @code{once-incrementally}, @code{once-call-incrementally}, and @code{once-require-incrementally}
 
-Not yet implemented.
+These helpers are inspired by Doom's @samp{:defer-incrementally} use-package keyword which allows you to defer packages to be loaded during idle time after startup.  This is useful when there is not some better specific condition to load a package and you don't need it immediately.  It can also help incrementally load large packages that have a lot of dependencies like org mode.  Unlike using @code{run-with-idle-timer} directly, this process spreads out loading the packages.
+
+The @code{once-idle-timer} variable controls how long to wait after startup to begin the incremental loading process (or how long after a user input to continue it).  When it is set to 0, all code will run immediately after startup.  When it is set to nil, no code will ever run.  @code{once-incremental-run-interval} specifies the time to wait in between each incremental run/load.  Any user input during this time period will cancel loading until the next period of idle time.
+
+To set up incremental loading, you should run @code{once-enable-incremental-loading} somewhere in your init file.  This will enable incremental loading after startup.
+@lisp
+(require 'once-incrementally)
+(once-enable-incremental-loading)
+@end lisp
+
+@code{once-incrementally} is the base function used to run code incrementally.  Unlike Doom's @samp{:defer-incrementally}, it can run arbitrary functions and also supports adding code to run at a specific "depth" (priority).  The default behavior is to run code in the order it was deferred, but a depth of -90, for example, could be given to prioritize some code to run first (see the documentation for @code{add-hook} for more information on depth).
+
+@lisp
+;; load `org-mode' incrementally
+(once-incrementally
+  :features
+  'calendar 'find-func 'format-spec 'org-macs 'org-compat 'org-faces
+  'org-entities 'org-list 'org-pcomplete 'org-src 'org-footnote 'org-macro 'ob
+  'org 'org-agenda 'org-capture)
+;; run some code after that
+(once-incrementally :functions #'my-post-idle-setup)
+;; load `ligature' first
+(once-incrementally -90 :features 'ligature)
+@end lisp
+
+Numbers apply a depth to everything after.  The default depth is 90.  Depths and the @samp{:features} or @samp{:functions} keywords can be specified multiple times.
+
+You generally will not use @code{once-incrementally} directly.  You'll probably use @code{once-call-incrementally} or @code{once-require-incrementally} instead.  If you don't like their syntax, you can build your own macro on top of @code{once-incrementally}.
+
+@code{once-require-incrementally} works like @code{once-incrementally} but only supports unquoted features.
+@lisp
+;; incrementally load `org-mode'
+(once-require-incrementally
+  calendar find-func format-spec org-macs org-compat org-faces org-entities
+  org-list org-pcomplete org-src org-footnote org-macro ob org org-agenda
+  org-capture)
+;; load `ligature' first
+(once-require-incrementally -90 ligature)
+@end lisp
+
+@code{once-call-incrementally} is somewhat similar to @code{once} in that it will automatically wrap forms in lambdas.
+@lisp
+(defun my-idle-setup ()
+  (foo)
+  (bar)
+  (baz))
+
+(once-call-incrementally #'my-idle-setup #'qux)
+
+;; can also do
+(once-call-incrementally
+  (foo)
+  (bar)
+  (baz)
+  (qux))
+
+;; can mix and match and include depths
+(once-call-incrementally
+  10
+  (foo)
+  (bar)
+  #'baz
+  30
+  (qux))
+@end lisp
 
 @menu
 * Use-package @samp{once-require-incrementally} / @samp{require-incrementally}::
@@ -838,7 +960,48 @@ Not yet implemented.
 @node Use-package @samp{once-require-incrementally} / @samp{require-incrementally}
 @subsection Use-package @samp{:once-require-incrementally} / @samp{:require-incrementally}
 
+The @samp{:require-incrementally} keyword is comparable to Doom's @samp{:defer-incrementally}.  It takes any number of @code{once-require-incrementally} argument lists:
+@lisp
+(use-package recentf
+  :require-incrementally (easymenu tree-widget timer recentf))
+(use-package recentf
+  :require-incrementally
+  (easymenu tree-widget timer)
+  (recentf))
+@end lisp
+
+Lists are not required:
+@lisp
+(use-package recentf
+  :require-incrementally easymenu tree-widget timer recentf)
+@end lisp
+
+It supports replacing @samp{t} or @samp{nil} with the package name:
+@lisp
+;; (once-require-incrementally whitespace)
+(use-package whitespace
+  :require-incrementally t)
+@end lisp
+
+Unlike @samp{:defer-incrementally}, it will not currently automatically add the package name to the list if a placeholder is not specified.  The reason for this is that I thought it might be too much magic (possibly there is some case where you would not want the package to be added).  If you want this functionality, feel free to open an issue.
+
 @node Setupel @samp{once-require-incrementally} / @samp{require-incrementally}
 @subsection Setup.el  @samp{:once-require-incrementally} / @samp{:require-incrementally}
+
+The @samp{:require-incrementally} setup.el keyword takes a @code{once-require-incrementally} arglist:
+@lisp
+(setup (:package recentf)
+  (:require-incrementally easymenu tree-widget timer recentf))
+@end lisp
+
+It supports replacing @samp{t}, @samp{nil}, or an empty argument list with the package name:
+@lisp
+;; (once-require-incrementally whitespace)
+(setup (:package recentf)
+  (:require-incrementally t))
+;; or just
+(setup (:package recentf)
+  (:require-incrementally))
+@end lisp
 
 @bye

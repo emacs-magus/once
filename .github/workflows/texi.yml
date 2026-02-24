@@ -1,12 +1,7 @@
-name: Texi
+name: Check info manual is up-to-date
 
 on:
   pull_request:
-    paths:
-      - 'README.org'
-      - 'once.texi'
-      - '**texi.yml'
-  push:
     paths:
       - 'README.org'
       - 'once.texi'

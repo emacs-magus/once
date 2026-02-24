@@ -204,7 +204,7 @@ With =use-package=, the mode to run can be inferred:
   :init
   (eval-and-compile
     ;; must set before loading
-    (setq once-use-package-aliases
+    (setq once-use-package-keyword-aliases
           '(:once-x-require :require-once
             :once-require-incrementally :require-incrementally)))
   (require 'once-use-package))
@@ -636,7 +636,7 @@ Any number of features to require can be specified:
 :PROPERTIES:
 :CUSTOM_ID: use-package-once-x-require--require-once
 :END:
-It is recommend you alias =:once-x-require= to =:require-once= using =once-use-package-aliases=.
+It is recommend you alias =:once-x-require= to =:require-once= using =once-use-package-keyword-aliases=.
 
 The keyword takes any number of ~once-x-require~ argument lists:
 #+begin_src emacs-lisp

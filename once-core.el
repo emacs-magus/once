@@ -31,13 +31,13 @@
   "Provides extra deferred evaluation init.el utilities."
   :group 'convenience)
 
-(defun once--function-p (form)
-  "Return whether FORM (a form passed to a macro) is a function.
-FORM is considered a function if it looks like \\='foo, #\\='foo, or (lambda ()
-...)."
-  (or (symbolp form)
-      (and (listp form)
-           (memq (car form) '(lambda function quote)))))
+(defun once--wrap-with-lambda-p (form)
+  "Return whether FORM (a form passed to a macro) should be wrapped in lambda.
+FORM should wrapped if it is a list like (foo) but not \\='foo, #\\='foo, (quote
+foo), (function foo), or (lambda () ...)."
+  (and form
+       (listp form)
+       (not (memq (car form) '(lambda function quote)))))
 
 (provide 'once-core)
 ;; TODO https://github.com/alphapapa/makem.sh/issues/7#issuecomment-1141748201

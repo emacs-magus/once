@@ -633,9 +633,9 @@ be a function body:
 
 See `once-x-call' for more information, including how to specify CONDITION."
   (declare (indent 1) (debug (form &or [body def-body])))
-  (if (once--function-p (car body))
-      `(once-x-call ,condition ,@body)
-    `(once-x-call ,condition (lambda () ,@body))))
+  (if (once--wrap-with-lambda-p (car body))
+      `(once-x-call ,condition (lambda () ,@body))
+    `(once-x-call ,condition ,@body)))
 
 (defun once-x-require (condition &rest packages)
   "Once CONDITION is met the first time, require PACKAGES."

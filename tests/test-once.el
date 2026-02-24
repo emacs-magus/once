@@ -807,10 +807,14 @@ This is `ert-run-idle-timers'"
   (describe "should expand to once-x-call as-is when the first function argument"
     (it "is a sharp-quoted symbol"
       (expect (macroexpand-1 '(once condition #'foo #'bar))
-              :to-equal '(once-x-call condition #'foo #'bar)))
+              :to-equal '(once-x-call condition #'foo #'bar))
+      (expect (macroexpand-1 '(once condition (function foo) #'bar))
+              :to-equal '(once-x-call condition (function foo) #'bar)))
     (it "is a quoted symbol"
       (expect (macroexpand-1 '(once condition 'foo #'bar))
-              :to-equal '(once-x-call condition 'foo #'bar)))
+              :to-equal '(once-x-call condition 'foo #'bar))
+      (expect (macroexpand-1 '(once condition (quote foo) #'bar))
+              :to-equal '(once-x-call condition (quote foo) #'bar)))
     (it "is an unquoted symbol (possible variable)"
       (expect (macroexpand-1 '(once condition fun-in-var #'bar))
               :to-equal '(once-x-call condition fun-in-var #'bar)))
@@ -818,10 +822,9 @@ This is `ert-run-idle-timers'"
       (expect (macroexpand-1 '(once condition (lambda nil) #'bar))
               :to-equal '(once-x-call condition (lambda nil) #'bar))))
   (describe "should wrap the body in a lambda when the first function argument"
-    (it "is a form/list"
+    (it "is a any other list"
       (expect (macroexpand-1 '(once condition (foo) (bar)))
               :to-equal '(once-x-call condition
-
                            (lambda nil (foo) (bar)))))))
 
 ;; * once-x-require
@@ -970,6 +973,20 @@ This is `ert-run-idle-timers'"
       (once--begin-incremental-loading)
       (expect once--incremental-code :to-be nil)
       (expect (featurep 'test-once-dummy))))
+  (it "should format error messages with condition type and message"
+    (let ((once-idle-timer 0)
+          (test-once-error-message nil))
+      (once-incrementally :functions #'test-once-throw-error)
+      (cl-letf (((symbol-function 'message)
+                 (lambda (format-string &rest args)
+                   (when (string-match-p "once.el failed to run" format-string)
+                     (setq test-once-error-message
+                           (apply #'format format-string args))))))
+        (once--begin-incremental-loading))
+      (expect test-once-error-message :not :to-be nil)
+      (expect test-once-error-message
+              :to-match
+              "because: error - Oh no")))
   (it "should do nothing when once-idle-timer is nil"
     (let (once-idle-timer)
       (once-incrementally :functions #'test-once-incf-counter)
@@ -990,24 +1007,36 @@ This is `ert-run-idle-timers'"
       (once--begin-incremental-loading)
       (expect once--incremental-code
               :to-equal nil)
-      (expect test-once-counter :to-be 1))))
+      (expect test-once-counter :to-be 1)))
+  (it "should error when first non-depth entry is not :features or :functions"
+    (expect (once-incrementally 'foo)
+            :to-throw 'user-error
+            '("First non-depth entry must be :features or :functions before foo")))
+  (it "should error when entry after depth is not :features or :functions"
+    (expect (once-incrementally 10 'foo)
+            :to-throw 'user-error
+            '("First non-depth entry must be :features or :functions before foo"))))
 
 ;; * once-call-incrementally
 (describe "once-call-incrementally"
-  (describe "should expand to once-incrementally as-is for when the argument"
+  (describe "should expand to once-incrementally as-is when the first argument"
     (it "is a sharp-quoted symbol"
       (expect (macroexpand-1 '(once-call-incrementally #'foo))
-              :to-equal '(once-incrementally :functions #'foo)))
+              :to-equal '(once-incrementally :functions #'foo))
+      (expect (macroexpand-1 '(once-call-incrementally (function foo)))
+              :to-equal '(once-incrementally :functions (function foo))))
     (it "is a quoted symbol"
       (expect (macroexpand-1 '(once-call-incrementally 'foo))
-              :to-equal '(once-incrementally :functions 'foo)))
+              :to-equal '(once-incrementally :functions 'foo))
+      (expect (macroexpand-1 '(once-call-incrementally (quote foo)))
+              :to-equal '(once-incrementally :functions (quote foo))))
     (it "is an unquoted symbol (variable containing function)"
       (expect (macroexpand-1 '(once-call-incrementally fun-in-var))
               :to-equal '(once-incrementally :functions fun-in-var)))
     (it "is a lambda"
       (expect (macroexpand-1 '(once-call-incrementally (lambda nil)))
               :to-equal '(once-incrementally :functions (lambda nil)))))
-  (it "should wrap the body in a lambda when the argument is a form/list"
+  (it "should wrap the body in a lambda when the argument is a any other list"
     (expect (macroexpand-1 '(once-call-incrementally (foo)))
             :to-equal '(once-incrementally :functions (lambda nil (foo)))))
   (it "should correctly handle a mix of depths, functions, and forms"

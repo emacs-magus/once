@@ -63,7 +63,7 @@ form (:feature <feature>).")
 ;; * Helpers
 (defun once--load-feature (feature)
   "Load FEATURE and return t."
-  (message "Once loading %s" feature)
+  (message "once.el: Loading %s" feature)
   ;; if `default-directory' doesn't exist or is unreadable, Emacs throws file
   ;; errors
   (let ((default-directory user-emacs-directory)
@@ -80,7 +80,7 @@ ITEM should be in the format (:feature <feature>) or (:function <function>)."
         (code (cadr item)))
     (if (eq type :feature)
         (once--load-feature code)
-      (message "Once running %s" code)
+      (message "once.el: Running %s" code)
       (funcall code)
       t)))
 
@@ -100,11 +100,11 @@ run the remaining entries after `once-incremental-run-interval'."
                        (setq code (cadr item))
                        (and (eq type :feature)
                             (featurep code))))
-      (message "Once already loaded %s" code))
+      (message "once.el: %s already loaded (skipping)" code))
     (cond
      ;; no more items to process
      ((null item)
-      (message "Once finished incrementally running code"))
+      (message "once.el: Finished incrementally running code"))
      ;; not idle long enough - wait for remaining time (or full idle timer)
      ((or (null (setq idle-time (current-idle-time)))
           (< (float-time idle-time) once-idle-timer))
@@ -124,9 +124,10 @@ run the remaining entries after `once-incremental-run-interval'."
             (push item once--incremental-code)
             (run-at-time once-idle-timer nil #'once--run-incrementally))
         (error
-         (message "Error: once failed to incrementally run %S because: %s"
+         (message "Error: once.el failed to incrementally run %S because: %s - %s"
                   item
-                  e)
+                  (car e)
+                  (error-message-string e))
          (run-at-time once-incremental-run-interval nil
                       #'once--run-incrementally)))))))
 
@@ -140,9 +141,10 @@ run the remaining entries after `once-incremental-run-interval'."
             (condition-case e
                 (once--run item)
               (error
-               (message "Error: once failed to run %S because: %s"
+               (message "Error: once.el failed to run %S because: %s - %s"
                         item
-                        e)))))
+                        (car e)
+                        (error-message-string e))))))
       (run-with-idle-timer once-idle-timer
                            nil #'once--run-incrementally))))
 
@@ -178,14 +180,19 @@ on customizing when code will be run."
   (let ((depth 90)
         type)
     (dolist (entry entries)
-      (cond ((keywordp entry)
-             (setq type entry))
-            ((numberp entry)
-             (setq depth entry))
-            (t
-             (let ((item (list (once--make-singular type)
-                               entry)))
-               (add-hook 'once--incremental-code item depth)))))))
+      (cond
+       ((keywordp entry)
+        (setq type entry))
+       ((numberp entry)
+        (setq depth entry))
+       (t
+        (unless type
+          (user-error
+           "First non-depth entry must be :features or :functions before %S"
+           entry))
+        (let ((item (list (once--make-singular type)
+                          entry)))
+          (add-hook 'once--incremental-code item depth)))))))
 
 ;;;###autoload
 (defmacro once-call-incrementally (&rest body)
@@ -225,7 +232,7 @@ on customizing when code will be run."
   (let (args
         wrap-forms)
     (dolist (form body)
-      (if (and (listp form) (not (once--function-p form)))
+      (if (once--wrap-with-lambda-p form)
           (push form wrap-forms)
         (when wrap-forms
           (push `(lambda () ,@(nreverse wrap-forms)) args)

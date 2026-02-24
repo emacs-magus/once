@@ -1,4 +1,4 @@
-;;; test-once-setup-aliases.el --- Test aliases for once-setup.el -*- lexical-binding: t; -*-
+;;; test-once-use-package-aliases.el --- Test aliases for once-use-package -*- lexical-binding: t; -*-
 
 ;; Author: Fox Kiester <noctuid@pir-hana.cafe>
 ;; URL: https://github.com/emacs-magus/once
@@ -22,9 +22,8 @@
 
 ;;; Commentary:
 ;;
-;; Test aliases for once-setup.el
+;; Test aliases for once-use-package.el
 ;;
-
 ;; For more information see the README in the online repository.
 
 ;;; Code:
@@ -32,15 +31,28 @@
 
 (require 'buttercup)
 
-(defvar once-setup-keyword-aliases)
-(setq once-setup-keyword-aliases
+;; aliases must be set before loading once-use-package
+(defvar once-use-package-keyword-aliases)
+(setq once-use-package-keyword-aliases
       '(:once-require-incrementally :require-incrementally))
-(require 'once-setup)
+(require 'once-use-package)
 
-(describe "once-setup-keyword-aliases"
+(setq use-package-always-defer t)
+
+(defun test-once-use-package-compare (expansion expected-expansion)
+  "Compare EXPANSION to EXPECTED-EXPANSION.
+Remove most of the `use-package' boilerplate from EXPANSION."
+  (let ((expansion-without-error-handling (nth 2 (nth 2 expansion))))
+    (expect expansion-without-error-handling
+            :to-equal expected-expansion)))
+
+(describe "once-use-package-keyword-aliases"
   (it "should allow defining an alias for a keyword"
-    (expect (macroexpand-1 '(setup foo
-                              (:require-incrementally t)))
-            :to-equal (macroexpand-1 '(once-require-incrementally foo)))))
+    (expect (functionp 'use-package-normalize/:require-incrementally))
+    (expect (functionp 'use-package-handler/:require-incrementally))
+    (test-once-use-package-compare
+     (macroexpand-1 '(use-package foo
+                       :require-incrementally t))
+     '(once-require-incrementally foo))))
 
-;;; test-once-setup-aliases.el ends here
+;;; test-once-use-package-aliases.el ends here

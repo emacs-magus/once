@@ -5,7 +5,7 @@
 - `make lint` - Run all linters (checkdoc, declare, indent, package, regexps)
 - `make clean` - Remove compiled .elc and autoload files
 - `make deps` - Install dependencies to sandbox
-- `make texi` - Generate texinfo documentation
+- `make texi` - Generate texinfo documentation (should run after making any changes to the readme)
 - Run single test file: `./makem/makem.sh test-buttercup -- tests/test-once.el`
 
 ## Code Style

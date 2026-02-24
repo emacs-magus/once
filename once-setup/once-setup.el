@@ -5,8 +5,7 @@
 ;; Created: May 06, 2022
 ;; Keywords: convenience dotemacs startup config
 ;; NOTE setup.el depends on 26.1
-;; TODO add once; currently will break tests since not packaged though
-;; Package-Requires: ((emacs "26.1") (setup "1.2.0"))
+;; Package-Requires: ((emacs "26.1") (setup "1.2.0") (once "0.1.0"))
 ;; Version: 0.1.0
 
 ;; This file is not part of GNU Emacs.

@@ -4,8 +4,8 @@
 ;; URL: https://github.com/emacs-magus/once
 ;; Created: May 06, 2022
 ;; Keywords: convenience dotemacs startup config
+;; Package-Requires: ((emacs "26.1") (use-package "2.4.4") (once "0.1.0"))
 ;; TODO add once; currently will break tests since not packaged though
-;; Package-Requires: ((emacs "26.1") (use-package "2.4.4"))
 ;; Version: 0.1.0
 
 ;; This file is not part of GNU Emacs.

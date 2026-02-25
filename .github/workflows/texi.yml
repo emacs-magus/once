@@ -22,6 +22,6 @@ jobs:
           emacs_version: 28.1
           os: ubuntu-latest
       - name: Install dependencies
-        run: make deps
+        run: make deps-texi
       - name: Check once.texi is up-to-date
         run: make check-texi

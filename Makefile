@@ -45,6 +45,23 @@ lint:
 clean:
 	rm -f -- *.elc **/*.elc *-autoloads.el **/*-autoloads.el *\~ **/*\~
 
+.PHONY: deps-texi
+deps-texi:
+	@mkdir -p "$(SANDBOX_DIR)"
+	$(EMACS) --batch \
+		--eval "(require 'package)" \
+		--eval "(setq user-emacs-directory (file-truename \"$(SANDBOX_DIR)\"))" \
+		--eval "(setq package-user-dir (expand-file-name \"elpa\" user-emacs-directory))" \
+		--eval "(add-to-list 'package-archives '(\"nongnu\" . \"https://elpa.nongnu.org/nongnu/\") t)" \
+		--eval "(package-initialize)" \
+		--eval "(package-refresh-contents)" \
+		--eval "(package-install 'org-contrib)"
+
+.PHONY: check-texi
+check-texi: texi
+	@git diff --exit-code once.texi || \
+		(echo "once.texi is out of date; please run 'make texi' and commit the result" && exit 1)
+
 .PHONY: texi
 texi:
 	@# put index version of readme in texi folder

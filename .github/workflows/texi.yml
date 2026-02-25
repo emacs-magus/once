@@ -1,0 +1,27 @@
+name: Check info manual is up-to-date
+
+on:
+  pull_request:
+    paths:
+      - 'README.org'
+      - 'once.texi'
+      - '**texi.yml'
+
+jobs:
+  check-texi:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: "Install Emacs and everything needed for makem"
+        uses: emacs-magus/setup-makem@master
+        with:
+          emacs_version: 28.1
+          os: ubuntu-latest
+      - name: Install dependencies
+        run: make deps-texi
+      - name: Check once.texi is up-to-date
+        run: make check-texi

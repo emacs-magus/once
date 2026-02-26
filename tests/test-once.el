@@ -45,6 +45,25 @@
 (defun test-once-dummy-fn (&rest _)
   "Dummy function to advise.")
 
+(defvar test-once-depth-order nil
+  "List to track order of depth test function calls.")
+
+(defun test-once-depth-fn-1 ()
+  "Test function for depth ordering."
+  (push 1 test-once-depth-order))
+
+(defun test-once-depth-fn-2 ()
+  "Test function for depth ordering."
+  (push 2 test-once-depth-order))
+
+(defun test-once-depth-fn-3 ()
+  "Test function for depth ordering."
+  (push 3 test-once-depth-order))
+
+(defun test-once-depth-fn-4 ()
+  "Test function for depth ordering."
+  (push 4 test-once-depth-order))
+
 ;; will need to update this if anything changes
 (defun test-once-advised-p (fun)
   "Return whether FUN has advice."
@@ -801,6 +820,92 @@ This is `ert-run-idle-timers'"
       (expect test-once-hook :to-be nil)
       (expect (not (test-once-advised-p #'test-once-dummy-fn)))
       (expect after-load-alist :to-be nil))))
+
+;; * keyword syntax hooks
+(describe "once-x-call with keyword hook syntax"
+  (before-each
+    (setq test-once-counter 0
+          test-once-hook nil)
+    (when (featurep 'test-once-dummy)
+      (unload-feature 'test-once-dummy)))
+  (after-each
+    ;; ensure test-once-hook is not buffer-local after tests
+    (when (local-variable-p 'test-once-hook)
+      (kill-local-variable 'test-once-hook)))
+
+  (it "should support keyword syntax with :hook"
+    (once-x-call (list :hooks (list :hook 'test-once-hook))
+      (lambda () (cl-incf test-once-counter)))
+    (expect test-once-counter :to-be 0)
+    (expect test-once-hook :not :to-be nil)
+    (run-hooks 'test-once-hook)
+    (expect test-once-counter :to-be 1)
+    (expect test-once-hook :to-be nil))
+
+  (it "should support keyword syntax with :hook and :depth"
+    ;; add hooks with different depths using once-x-call to verify ordering
+    (setq test-once-depth-order nil)
+    (once-x-call (list :hooks (list :hook 'test-once-hook :depth 10))
+      #'test-once-depth-fn-1)
+    (once-x-call (list :hooks (list :hook 'test-once-hook :depth -10))
+      #'test-once-depth-fn-2)
+    (once-x-call (list :hooks (list :hook 'test-once-hook :depth 90))
+      #'test-once-depth-fn-3)
+    (once-x-call (list :hooks (list :hook 'test-once-hook :depth -90))
+      #'test-once-depth-fn-4)
+    (expect (length test-once-hook) :to-be 4)
+    ;; run hook - functions should run in depth order
+    ;; execution order: -90, -10, 10, 90
+    ;; push order: 4, 2, 1, 3
+    ;; final list: (3 1 2 4)
+    (run-hooks 'test-once-hook)
+    (expect test-once-depth-order :to-equal '(3 1 2 4)))
+
+  (it "should support keyword syntax with :hook and :local"
+    (once-x-call (list :hooks (list :hook 'test-once-hook :local t))
+      (lambda () (cl-incf test-once-counter)))
+    (expect test-once-counter :to-be 0)
+    (expect (local-variable-p 'test-once-hook)))
+
+  (it "should support keyword syntax with :hook and :check"
+    (setq test-once-run-now nil)
+    (once-x-call (list :hooks (list :hook 'test-once-hook
+                                    :check (lambda () test-once-run-now)))
+      (lambda () (cl-incf test-once-counter)))
+    (expect test-once-counter :to-be 0)
+    (run-hooks 'test-once-hook)
+    (expect test-once-counter :to-be 0)
+    (setq test-once-run-now t)
+    (run-hooks 'test-once-hook)
+    (expect test-once-counter :to-be 1))
+
+  (it "should support keyword syntax with all options"
+    (setq test-once-run-now nil
+          test-once-depth-order nil)
+    (once-x-call (list :hooks (list :hook 'test-once-hook
+                                    :depth 10
+                                    :local t
+                                    :check (lambda () test-once-run-now)))
+      #'test-once-depth-fn-1)
+    (once-x-call (list :hooks (list :hook 'test-once-hook
+                                    :depth -90
+                                    :local t
+                                    :check (lambda () test-once-run-now)))
+      #'test-once-depth-fn-2)
+    (expect test-once-counter :to-be 0)
+    (expect (local-variable-p 'test-once-hook))
+    ;; check hook has 2 functions plus t marker for local (total 3)
+    (expect (length test-once-hook) :to-be 3)
+    ;; run hook with check passing
+    (setq test-once-run-now t)
+    (run-hooks 'test-once-hook)
+    ;; depth -90 runs first, then depth 10 (pushes 2 then 1)
+    (expect test-once-depth-order :to-equal '(1 2)))
+
+  (it "should error when :hook keyword is missing"
+    (expect (once-x-call (list :hooks (list :depth 10))
+              (lambda () (cl-incf test-once-counter)))
+            :to-throw)))
 
 ;; * once
 (describe "once"

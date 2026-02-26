@@ -687,5 +687,51 @@ See `once-x-call' for more information, including how to specify CONDITION."
       (format "Require %s." (string-join package-strings ", ")))
     (once-x-call condition require-fun)))
 
+;;;; Compat https://github.com/meedstrom/once
+
+(defun once--make-deterministic-name (&rest args)
+  "Return a string that is unique for Lisp objects ARGS."
+  (concat "once---"
+          (mapconcat (lambda (arg)
+                       (if (symbolp arg)
+                           (symbol-name arg)
+                         (number-to-string (sxhash arg))))
+                     args
+                     ;; Dots nicer than dashes bc `sxhash' can return negative
+                     ".")))
+
+(defun once-hook (hook function &optional depth local)
+  "Like `add-hook' but call FUNCTION on next run of HOOK only.
+DEPTH and LOCAL as in `add-hook'.
+
+As expected from `add-hook', this does nothing if FUNCTION is already a
+member of HOOK, even if DEPTH would differ.
+
+Conversely, `once-hook' actually adds a wrapper of FUNCTION to HOOK, so
+if `add-hook' later adds FUNCTION, that will succeed normally, but then
+HOOK will run FUNCTION twice the first time."
+  ;; Check manually b/c input `function' is not the `wrapper' we make
+  (unless (if local
+              (and (boundp hook) (member function (symbol-value hook)))
+            (and (default-boundp hook) (member function (default-value hook))))
+    (let ((wrapper (intern (once--make-deterministic-name hook function local))))
+      (unless (fboundp wrapper)
+        (defalias wrapper
+          (lambda (&rest args)
+            (remove-hook hook wrapper local)
+            (apply function args))
+          (format "Thin wrapper around function %S" function)))
+      (add-hook hook wrapper depth local))))
+
+(define-obsolete-function-alias 'once-load 'once-after-load "2026-02-21")
+
+(defmacro once-hook! (hook &rest body)
+  (declare (indent 1) (debug t))
+  `(once (list :hooks ',hook) (lambda () ,@body)))
+
+(defmacro once-load! (feature &rest body)
+  (declare (indent 1) (debug t) (obsolete once-with "2026-02-21"))
+  `(once-with ',feature ,@body))
+
 (provide 'once)
 ;;; once.el ends here

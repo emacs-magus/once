@@ -363,9 +363,10 @@ FUNCTION will only run once.  Once it runs, all added functions will be removed
 from each hook and advised symbol.
 
 HOOKS should be a list with each item in the form:
-\(<hook symbol> <local-check function or nil>)
+\(<hook symbol> &optional <local-check function or nil> <depth> <local>)
 e.g.
 \(\\='some-hook (lambda (&rest _hook-args) (foo-check)))
+\(\\='some-hook (lambda (&rest _hook-args) (foo-check)) 90 t)
 
 ADVISE-SYMBOLS should be a list with each item in the form:
 \(<where> <advise function symbol> <optional local-check>)
@@ -382,13 +383,13 @@ VARIABLES should be a list with each item in the form:
 e.g.
 \(\\='some-variable (lambda (_symbol _newval _operation _where) (foo-check)))"
   (let ((hook-pairs
-         (cl-loop for (hook local-check) in hooks
+         (cl-loop for (hook local-check depth local) in hooks
                   collect (let ((maybe-function
                                  (once--make-conditional-function
                                   function
                                   local-check
                                   check)))
-                            (add-hook hook maybe-function)
+                            (add-hook hook maybe-function depth local)
                             (list hook maybe-function))))
         (advice-pairs
          (cl-loop for (where advise-symbol local-check) in advise-symbols
@@ -449,6 +450,31 @@ If it is already a list, just return ITEM."
       item
     (list item nil)))
 
+(defun once--parse-hook-item (item)
+  "Parse ITEM into a normalized hook specification.
+ITEM can be:
+- A symbol (the hook name)
+- A list (HOOK CHECK) for hook with local check
+- A plist with keywords :hook, :depth, :local, and :check
+
+Returns a list (HOOK &optional CHECK DEPTH LOCAL)."
+  (cond
+   ((not (listp item))
+    ;; just a hook symbol
+    (list item))
+   ((keywordp (car item))
+    ;; keyword syntax: (:hook hook :depth depth :local local :check check)
+    (let ((hook (plist-get item :hook))
+          (depth (plist-get item :depth))
+          (local (plist-get item :local))
+          (check (plist-get item :check)))
+      (unless hook
+        (user-error "Keyword-based hook syntax requires :hook keyword"))
+      (list hook check depth local)))
+   (t
+    ;; traditional list syntax: (hook check)
+    item)))
+
 (defvar once--shorthand-hook-regexp (rx (or "-hook" "-functions") eol)
   "Regexp for hook symbol names by when `once-shorthand' is non-nil.")
 
@@ -498,7 +524,7 @@ If it is already a list, just return ITEM."
                        (setq current-key item))
                       (t
                        (cl-case current-key
-                         (:hooks (push (once--condition-item-to-list item)
+                         (:hooks (push (once--parse-hook-item item)
                                        hooks))
                          ((:packages :files)
                           (push (once--condition-item-to-list item)
@@ -588,6 +614,15 @@ single symbol.  For example:
 \(list
  :hooks
  (list \\='after-load-functions (lambda (_load-file) (boundp \\='some-symbol))))
+
+Alternatively, hooks support keyword arguments for specifying depth, local,
+and the check function:
+\(list :hooks
+       (list :hook \\='some-hook :depth 10 :local t :check #'some-check))
+
+:hook is required when using keyword arguments.  :depth specifies the depth
+argument for `add-hook'.  :local specifies whether to use a buffer-local
+hook (nil means global).  :check specifies the check function.
 
 Unlike the :check and :initial-check functions, which take no arguments, a local
 check function will be passed whatever arguments are given for the hook or

@@ -526,6 +526,41 @@ At least one of @samp{:hooks}, @samp{:packages} (a.k.a. @samp{:files}), @samp{:v
 (once 'emacs-lisp-mode-hook #'cl-lib-highlight-initialize)
 @end lisp
 
+@enumerate
+@item
+@anchor{Keyword Syntax for Hooks}Keyword Syntax for Hooks
+
+
+Hooks additionally support an alternative keyword-based syntax for specifying @code{add-hook} arguments (@samp{:depth} and @samp{:local}) as well as the @ref{Local Checks, , local check} function (@samp{:check}):
+
+@lisp
+(list :hooks (list :hook 'some-hook :depth 10 :local t :check #'some-check)
+      'no-check-hook)
+@end lisp
+
+@samp{:hook} is required when using keyword arguments.  All other keywords are optional:
+@itemize
+@item
+@samp{:depth} - corresponds to the DEPTH argument to @code{add-hook}
+@item
+@samp{:local} - corresponds to the LOCAL argument to @code{add-hook}
+@item
+@samp{:check} - a local check function
+@end itemize
+
+For example, to add a function earlier in the hook:
+@lisp
+(once (list :hooks (list :hook 'emacs-lisp-mode-hook :depth -90))
+  (require 'my-elisp-config))
+@end lisp
+
+Or to add a buffer-local hook:
+@lisp
+(once (list :hooks (list :hook 'post-command-hook :local t))
+  (do-something))
+@end lisp
+@end enumerate
+
 @item
 @anchor{@samp{packages}}@samp{:packages}
 

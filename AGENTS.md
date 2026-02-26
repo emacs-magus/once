@@ -16,7 +16,7 @@
 - **Imports**: Use `require` at top of file; optional deps checked with `featurep`
 - **Customization**: Use `defcustom` for user settings with `:group 'once`
 - **Errors**: Use `error` for fatal errors
-- **Comments**: Use `;;` or `;;;` for section headers and avoid inline comments
+- **Comments**: Use `;;` or `;;;` for section headers and avoid inline comments; start comments with lowercase letters
 
 ## Testing
 - Tests are in `tests/` using buttercup framework

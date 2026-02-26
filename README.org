@@ -491,6 +491,31 @@ At least one of =:hooks=, =:packages= (a.k.a. =:files=), =:variables= (a.k.a. =:
 (once 'emacs-lisp-mode-hook #'cl-lib-highlight-initialize)
 #+end_src
 
+****** Keyword Syntax for Hooks
+Hooks additionally support an alternative keyword-based syntax for specifying ~add-hook~ arguments (=:depth= and =:local=) as well as the [[#local-checks][local check]] function (=:check=):
+
+#+begin_src emacs-lisp
+(list :hooks (list :hook 'some-hook :depth 10 :local t :check #'some-check)
+      'no-check-hook)
+#+end_src
+
+=:hook= is required when using keyword arguments.  All other keywords are optional:
+- =:depth= - corresponds to the DEPTH argument to ~add-hook~
+- =:local= - corresponds to the LOCAL argument to ~add-hook~
+- =:check= - a local check function
+
+For example, to add a function earlier in the hook:
+#+begin_src emacs-lisp
+(once (list :hooks (list :hook 'emacs-lisp-mode-hook :depth -90))
+  (require 'my-elisp-config))
+#+end_src
+
+Or to add a buffer-local hook:
+#+begin_src emacs-lisp
+(once (list :hooks (list :hook 'post-command-hook :local t))
+  (do-something))
+#+end_src
+
 **** =:packages=
 :PROPERTIES:
 :CUSTOM_ID: packages
